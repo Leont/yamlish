@@ -62,8 +62,18 @@ module YAMLish {
 			[ \. <[0..9]>+ ]?
 			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
 		}
-		token element:sym<yes> { :i <sym> }
-		token element:sym<no> { :i <sym> }
+		token yes {
+			:i y | yes | true | on
+		}
+		token no {
+			:i n | no | false | off
+		}
+		token boolean {
+			<yes> | <no>
+		}
+
+		token element:sym<yes> { <yes> }
+		token element:sym<no> { <no> }
 		token element:sym<null> { '~' }
 		token element:sym<bareword> { <bareword> }
 		token element:sym<map> {
@@ -177,7 +187,7 @@ module YAMLish {
 
 	multi to-yaml(Real:D $d; $ = Str) { ~$d }
 	multi to-yaml(Bool:D $d; $ = Str) { $d ?? 'true' !! 'false'; }
-	multi to-yaml(Str:D  $d where /^ <[\w.-]>+ $/ && .lc ne any(<true false>); $ = Str) {
+	multi to-yaml(Str:D  $d where /^ <!Grammar::boolean> <[\w.-]>+ $/; $ = Str) {
 		return $d;
 	}
 	multi to-yaml(Str:D  $d; $ = Str) {
