@@ -80,6 +80,7 @@ module YAMLish {
 			:temp $*yaml-indent ~= $sp;
 			<map>
 		}
+		token element:sym<empty-map> { '{}' }
 		token element:sym<list> {
 			[ \n | <after \n> ]
 			:my $sp;
@@ -87,6 +88,7 @@ module YAMLish {
 			:temp $*yaml-indent ~= $sp;
 			<list>
 		}
+		token element:sym<empty-list> { '[]' }
 		token element:sym<string> { <string> }
 		token element:sym<datetime> {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
@@ -142,7 +144,9 @@ module YAMLish {
 		method element:sym<string>($/) { make $<string>.ast }
 		method element:sym<null>($/) { make Any }
 		method element:sym<map>($/) { make $<map>.ast }
+		method element:sym<empty-map>($/) { make {} }
 		method element:sym<list>($/) { make $<list>.ast }
+		method element:sym<empty-list>($/) { make [] }
 		method element:sym<bareword>($/) { make $<bareword>.ast }
 		method element:sym<datetime>($/) {
 			make DateTime.new(|$/.hash);
