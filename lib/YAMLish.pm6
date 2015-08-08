@@ -12,11 +12,8 @@ module YAMLish {
 		}
 		token ws { <[\s] - [\n]> }
 		token TOP { <multi-doc> | <single-doc> }
-		token document {
-			<header> <content>
-		}
 		token multi-doc {
-			<document>+
+			[ <header> <content> ]+
 			<.footer>
 		}
 		token single-doc {
@@ -104,7 +101,7 @@ module YAMLish {
 			make $<content>.ast;
 		}
 		method multi-doc($/) {
-			make @<document>».ast.hash.item;
+			make [ @<content>».ast ];
 		}
 		method document($/) {
 			make $<header>.ast => $<content>.ast;
@@ -125,7 +122,7 @@ module YAMLish {
 			make $/.values.[0].ast;
 		}
 		method list($/) {
-			make [ @<element>».ast ]; 
+			make [ @<element>».ast ];
 		}
 		method string($/) {
 			make $/.values.[0].ast;

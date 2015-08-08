@@ -86,6 +86,6 @@ my $expected3 = {
 	User => "ed",
 }
 is-deeply(load-yaml($text3), $expected3, "Third test matches");
-is-deeply(load-yamls($text3), { backtrace => $expected3 }, "Third test matches in multi-doc mode too");
+is-deeply(load-yamls($text3), [ $expected3 ], "Third test matches in multi-doc mode too");
 
 done();
