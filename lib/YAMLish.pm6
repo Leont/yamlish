@@ -10,9 +10,13 @@ module YAMLish {
 			my $*yaml-indent = '';
 			callsame;
 		}
+		token version {
+			'%YAML' ' '? <[\d.]>+ \n
+		}
 		token ws { <[\s] - [\n]> }
 		token TOP { <multi-doc> | <single-doc> }
 		token multi-doc {
+			<version>?
 			[ <header> <content> ]+
 			<.footer>
 		}
