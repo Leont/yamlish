@@ -14,15 +14,10 @@ module YAMLish {
 			'%YAML' ' '? <[\d.]>+ \n
 		}
 		token ws { <[\s] - [\n]> }
-		token TOP { <multi-doc> | <single-doc> }
-		token multi-doc {
+		token TOP {
 			<version>?
 			[ <header> <content> ]+
 			<.footer>
-		}
-		token single-doc {
-			<.header> <content> <.footer>
-			| <content> \n?
 		}
 		token header { ^^ '---' <ws>* [ $<title>=\N+ ]? \n }
 		token footer { \n '...' [ \n | $ ] }
@@ -103,10 +98,7 @@ module YAMLish {
 	}
 
 	class Actions {
-		method single-doc($/) {
-			make $<content>.ast;
-		}
-		method multi-doc($/) {
+		method TOP($/) {
 			make [ @<content>».ast ];
 		}
 		method document($/) {
@@ -183,11 +175,11 @@ module YAMLish {
 	my $actions = Actions.new;
 
 	our sub load-yaml(Str $input) is export {
-		my $match = Grammar.parse($input, :$actions, :rule('single-doc'));
-		return $match ?? $match.ast !! Nil;
+		my $match = Grammar.parse($input, :$actions);
+		return $match ?? $match.ast[0] !! Nil;
 	}
 	our sub load-yamls(Str $input) is export {
-		my $match = Grammar.parse($input, :$actions, :rule('multi-doc'));
+		my $match = Grammar.parse($input, :$actions);
 		return $match ?? $match.ast !! Nil;
 	}
 
