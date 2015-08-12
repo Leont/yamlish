@@ -183,14 +183,14 @@ module YAMLish {
 		return $match ?? $match.ast !! Nil;
 	}
 
-	our proto to-yaml($;$ = Str) is export {*}
+	proto to-yaml($;$ = Str) {*}
 
 	multi to-yaml(Real:D $d; $ = Str) { ~$d }
 	multi to-yaml(Bool:D $d; $ = Str) { $d ?? 'true' !! 'false'; }
 	multi to-yaml(Str:D  $d where /^ <!Grammar::boolean> <[\w.-]>+ $/; $ = Str) {
 		return $d;
 	}
-	multi to-yaml(Str:D  $d; $ = Str) {
+	multi to-yaml(Str:D  $d; $) {
 		'"'
 		~ $d.trans(['"',  '\\',   "\b", "\f", "\n", "\r", "\t"]
 				=> ['\"', '\\\\', '\b', '\f', '\n', '\r', '\t'])\
@@ -199,25 +199,32 @@ module YAMLish {
 				}, :g)
 		~ '"'
 	}
-	multi to-yaml(Positional:D $d, Str $indent = '') {
-		return ($indent ?? "\n" !! '')
-				~ $d.flatmap({ to-yaml($_, $indent)}).map("$indent\- " ~ *).join("\n");
+	multi to-yaml(Positional:D $d, Str $indent) {
+		return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ') }).join("\n");
 	}
-	multi to-yaml(Associative:D $d, Str $indent = '') {
-		return ($indent ?? "\n" !! '')
-				~ $d.flatmap({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
+	multi to-yaml(Associative:D $d, Str $indent) {
+		return "\n" ~ $d.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
 	}
 
-	multi to-yaml(Mu:U $, $ = Str) { '~' }
-	multi to-yaml(Mu:D $s, $ = Str) {
+	multi to-yaml(Mu:U $, $) { '~' }
+	multi to-yaml(Mu:D $s, $) {
 		die "Can't serialize an object of type " ~ $s.WHAT.perl
 	}
 
-	proto to-yamls($) is export {*}
-	multi to-yamls(Positional:D $documents) {
-		$documents.map({ "---\n" ~ to-yaml($_) ~ "\n" }).join('') ~ "...";
+	subset Collection where Positional|Associative;
+
+	proto to-yaml-doc($) { * }
+	multi to-yaml-doc(Collection $document) {
+		return '---' ~ to-yaml($document, '') ~ "\n";
 	}
-	multi to-yamls(Associative:D $documents) {
-		$documents.pairs.map({ "--- {.key}\n" ~ to-yaml(.value) ~ "\n" }).join('') ~ "...";
+	multi to-yaml-doc(Any $document) {
+		return '--- ' ~ to-yaml($document, '') ~ "\n";
+	}
+
+	sub save-yaml($document --> Str) is export {
+		to-yaml-doc($document) ~ "...";
+	}
+	sub save-yamls(*@documents --> Str) is export {
+		@documents.map(&to-yaml-doc).join('') ~ "...";
 	}
 }
