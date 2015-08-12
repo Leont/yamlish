@@ -49,7 +49,7 @@ module YAMLish {
 			<-["\\\t\n]>+
 		}
 		token quoted-escape {
-			<["\\/bfnrt]> | u <xdigit>**4 | U<xdigit>**8
+			<["\\/abefnrvtz]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 		}
 
 		regex list {
@@ -137,7 +137,7 @@ module YAMLish {
 			make ~$<value>;
 		}
 		method quoted($/) {
-			make +@$<str> == 1 ?? $<str>[0].ast !! $<str>».ast.join;
+			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
 		}
 		method bareword($/) {
 			make ~$/;
@@ -160,11 +160,15 @@ module YAMLish {
 
 		my %h = '\\' => "\\",
 				'/' => "/",
+				'a' => "\a",
 				'b' => "\b",
+				'e' => "\e",
 				'n' => "\n",
 				't' => "\t",
 				'f' => "\f",
 				'r' => "\r",
+				'v' => "\x0b",
+				'z' => "\0",
 				'"' => "\"";
 		method quoted-escape($/) {
 			if $<xdigit> {
@@ -187,7 +191,6 @@ module YAMLish {
 		return $match ?? $match.ast !! Nil;
 	}
 
-	my $*yaml-indent = '';
 	our proto to-yaml($;$ = Str) is export {*}
 
 	multi to-yaml(Real:D $d; $ = Str) { ~$d }
@@ -199,8 +202,8 @@ module YAMLish {
 		'"'
 		~ $d.trans(['"',  '\\',   "\b", "\f", "\n", "\r", "\t"]
 				=> ['\"', '\\\\', '\b', '\f', '\n', '\r', '\t'])\
-				.subst(/<-[\c32..\c126]>/, {
-					$_.Str.encode('utf-16').values».fmt('\u%04x').join
+				.subst(/<-[\c9\xA\xD\x20..\x7E\xA0..\xD7FF\xE000..\xFFFD\x10000..\x10FFFF]>/, {
+					given .ord { $_ > 0xFFFF ?? .fmt("\\U%08x") !! $_ > 0xFF ?? .fmt("\\u%04x") !! .fmt("\\x%02x") }
 				}, :g)
 		~ '"'
 	}
