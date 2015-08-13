@@ -51,13 +51,6 @@ module YAMLish {
 			[ $*yaml-indent '-' <.ws>* <element> ]+ % \n
 		}
 
-		proto token element { * };
-		token element:sym<number> {
-			'-'?
-			[ 0 | <[1..9]> <[0..9]>* ]
-			[ \. <[0..9]>+ ]?
-			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
-		}
 		token yes {
 			:i y | yes | true | on
 		}
@@ -68,32 +61,40 @@ module YAMLish {
 			<yes> | <no>
 		}
 
-		token element:sym<yes> { <yes> }
-		token element:sym<no> { <no> }
-		token element:sym<null> { '~' }
-		token element:sym<bareword> { <bareword> }
-		token element:sym<map> {
-			[ \n | <after \n> ]
-			:my $sp;
-			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
-			:temp $*yaml-indent ~= $sp;
-			<map>
+		token number {
+			'-'?
+			[ 0 | <[1..9]> <[0..9]>* ]
+			[ \. <[0..9]>+ ]?
+			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
 		}
-		token element:sym<empty-map> { '{}' }
-		token element:sym<list> {
-			[ \n | <after \n> ]
-			:my $sp;
-			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
-			:temp $*yaml-indent ~= $sp;
-			<list>
-		}
-		token element:sym<empty-list> { '[]' }
-		token element:sym<string> { <string> }
-		token element:sym<datetime> {
+
+		token datetime {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 			[ ' ' | 'T' ]
 			$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
 			$<offset>=[ <[+-]> <[0..9]>**1..2]
+		}
+
+		proto token scalar { * }
+
+		token scalar:sym<number> { <number> }
+		token scalar:sym<yes> { <yes> }
+		token scalar:sym<no> { <no> }
+		token scalar:sym<null> { '~' }
+		token scalar:sym<bareword> { <bareword> }
+		token scalar:sym<empty-map> { '{}' }
+		token scalar:sym<empty-list> { '[]' }
+		token scalar:sym<string> { <string> }
+		token scalar:sym<datetime> { <datetime> }
+
+		token element { <scalar> | <collection> }
+
+		token collection {
+			[ \n | <after \n> ]
+			:my $sp;
+			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			:temp $*yaml-indent ~= $sp;
+			[ <list> | <map> ]
 		}
 	}
 
@@ -134,19 +135,23 @@ module YAMLish {
 		method bareword($/) {
 			make ~$/;
 		}
-		method element:sym<yes>($/) { make True }
-		method element:sym<no>($/) { make False }
-		method element:sym<number>($/) { make +$/.Str }
-		method element:sym<string>($/) { make $<string>.ast }
-		method element:sym<null>($/) { make Any }
-		method element:sym<map>($/) { make $<map>.ast }
-		method element:sym<empty-map>($/) { make {} }
-		method element:sym<list>($/) { make $<list>.ast }
-		method element:sym<empty-list>($/) { make [] }
-		method element:sym<bareword>($/) { make $<bareword>.ast }
-		method element:sym<datetime>($/) {
+		method datetime($/) {
 			make DateTime.new(|$/.hash);
 		}
+		method element($/) {
+			make $/.values.[0].ast;
+		}
+		method scalar:sym<yes>($/) { make True }
+		method scalar:sym<no>($/) { make False }
+		method scalar:sym<number>($/) { make +$/.Str }
+		method scalar:sym<string>($/) { make $<string>.ast }
+		method scalar:sym<null>($/) { make Any }
+		method scalar:sym<empty-map>($/) { make {} }
+		method scalar:sym<empty-list>($/) { make [] }
+		method scalar:sym<bareword>($/) { make $<bareword>.ast }
+		method scalar:sym<datetime>($/) { make $<datetime>.ast }
+
+		method collection($/) { make $/.values.[0].ast }
 
 		method quoted-bare ($/) { make ~$/ }
 
