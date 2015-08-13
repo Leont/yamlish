@@ -22,7 +22,7 @@ module YAMLish {
 		token header { ^^ '---' }
 		token footer { \n '...' [ \n | $ ] }
 		token content { \n <map> | \n <list> | ' ' <scalar> }
-		regex map {
+		token map {
 			<map-element>+ % \n
 		}
 		token map-element {
@@ -47,7 +47,7 @@ module YAMLish {
 			<["\\/abefnrvtz]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 		}
 
-		regex list {
+		token list {
 			[ $*yaml-indent '-' <.ws>* <element> ]+ % \n
 		}
 
