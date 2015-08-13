@@ -59,8 +59,7 @@ my $text3 = q:heredoc/END/;
 User: ed
 Fatal: "Unknown variable \"bar\""
 Stack:
-  -
-    file: TopClass.pl
+  - file: TopClass.pl
     line: 23
     code: "x = MoreObject(\"345\n\")"
   -

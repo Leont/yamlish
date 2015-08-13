@@ -23,10 +23,13 @@ module YAMLish {
 		token footer { \n '...' [ \n | $ ] }
 		token content { \n <map> | \n <list> | ' ' <inline> }
 		token map {
-			<map-element>+ % \n
+			$*yaml-indent <map-entry>+ % [ \n $*yaml-indent ]
 		}
-		token map-element {
-			$*yaml-indent <key> <.ws>? ':' <!alpha> <.ws>? <element>
+		token inline-map {
+			 <map-entry>+ % [ \n $*yaml-indent ]
+		}
+		token map-entry {
+			<key> <.ws>? ':' <!alpha> <.ws>? <element>
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
@@ -48,7 +51,18 @@ module YAMLish {
 		}
 
 		token list {
-			[ $*yaml-indent '-' <.ws>* <element> ]+ % \n
+			<list-entry>+ % \n
+		}
+		token list-entry {
+			$*yaml-indent '-'
+			[
+				<.ws>* <element>
+			|
+				:my $sp;
+				$<sp>=' '+ { $sp = $<sp> }
+				:temp $*yaml-indent ~= ' ' ~ $sp;
+				<element=inline-map>
+			]
 		}
 
 		token yes {
@@ -108,16 +122,22 @@ module YAMLish {
 			make $/.values.[0].ast;
 		}
 		method map($/) {
-			make @<map-element>».ast.hash.item;
+			make @<map-entry>».ast.hash.item;
 		}
-		method map-element($/) {
+		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
+		}
+		method inline-map($/) {
+			self.map($/);
 		}
 		method key($/) {
 			make $/.values.[0].ast;
 		}
 		method list($/) {
-			make [ @<element>».ast ];
+			make [ @<list-entry>».ast ];
+		}
+		method list-entry($/) {
+			make $<element>.ast;
 		}
 		method string($/) {
 			make $/.values.[0].ast;
