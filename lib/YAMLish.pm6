@@ -19,9 +19,9 @@ module YAMLish {
 			[ <header> <content> ]+
 			<.footer>
 		}
-		token header { ^^ '---' <ws>* [ $<title>=\N+ ]? \n }
+		token header { ^^ '---' }
 		token footer { \n '...' [ \n | $ ] }
-		token content { <map> | <list> }
+		token content { \n <map> | \n <list> | ' ' <scalar> }
 		regex map {
 			<map-element>+ % \n
 		}

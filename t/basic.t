@@ -55,7 +55,7 @@ is-deeply(load-yaml($text2), $expected2, "Second test matches");
 
 
 my $text3 = q:heredoc/END/;
---- backtrace
+---
 User: ed
 Fatal: "Unknown variable \"bar\""
 Stack:
