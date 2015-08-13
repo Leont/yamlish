@@ -29,7 +29,7 @@ module YAMLish {
 			$*yaml-indent <key> <.ws>? ':' <!alpha> <.ws>? <element>
 		}
 		token key { <bareword> | <string> }
-		token bareword { <alpha> <[\w.-]>*}
+		token bareword { <alpha> <[\w.-]>* }
 		token string {
 			<unquoted> | <quoted>
 		}
@@ -72,7 +72,7 @@ module YAMLish {
 		token inline:sym<yes> { <yes> }
 		token inline:sym<no> { <no> }
 		token inline:sym<null> { '~' }
-		token inline:sym<bareword> { <bareword> }
+		token inline:sym<bareword> { <bareword> <!before ':'> }
 		token inline:sym<empty-map> { '{}' }
 		token inline:sym<empty-list> { '[]' }
 		token inline:sym<string> { <string> }
