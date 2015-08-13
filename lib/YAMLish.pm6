@@ -41,7 +41,7 @@ module YAMLish {
 			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> ]*
 		}
 		token quoted-bare {
-			<-["\\\t\n]>+
+			<-["\\\n]>+
 		}
 		token quoted-escape {
 			<["\\/abefnrvtz]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
