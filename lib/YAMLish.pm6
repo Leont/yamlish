@@ -20,8 +20,8 @@ module YAMLish {
 			<.footer>
 		}
 		token header { ^^ '---' }
-		token footer { \n '...' [ \n | $ ] }
-		token content { \n <map> | \n <list> | ' ' <inline> }
+		token footer { [ \n '...' ]? \n? $ }
+		token content { \n <map> | \n <list> | ' '+ <inline> }
 		token map {
 			$*yaml-indent <map-entry>+ % [ \n $*yaml-indent ]
 		}
