@@ -21,7 +21,7 @@ module YAMLish {
 		}
 		token header { ^^ '---' }
 		token footer { [ \n '...' ]? \n? $ }
-		token content { \n <map> | \n <list> | ' '+ <inline> }
+		token content { \n <map> | \n <list> | ' '+ <inline> | ' '+ <block-string> }
 		token map {
 			$*yaml-indent <map-entry>+ % [ \n $*yaml-indent ]
 		}
@@ -97,7 +97,7 @@ module YAMLish {
 			$<offset>=[ <[+-]> <[0..9]>**1..2]
 		}
 
-		token element { <inline> | <block> }
+		token element { <inline> | <block> | <block-string> }
 
 		token block {
 			[ \n | <after \n> ]
@@ -105,6 +105,13 @@ module YAMLish {
 			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
 			[ <list> | <map> ]
+		}
+		token block-string {
+			$<kind>=<[|\>]> \n
+			:my $sp;
+			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			:temp $*yaml-indent ~= $sp;
+			[ $*yaml-indent $<content>=\N* ]+ % \n
 		}
 	}
 
@@ -150,6 +157,11 @@ module YAMLish {
 		}
 		method bareword($/) {
 			make ~$/;
+		}
+		method block-string($/) {
+			 my $ret = @<content>.map(* ~ "\n").join('');
+			 $ret.=subst(/ \n <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
+			 make $ret;
 		}
 		method element($/) {
 			self!first($/);
