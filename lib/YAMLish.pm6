@@ -112,14 +112,14 @@ module YAMLish {
 		method TOP($/) {
 			make [ @<content>».ast ];
 		}
+		method !first($/) {
+			make $/.values.[0].ast;
+		}
 		method document($/) {
 			make $<header>.ast => $<content>.ast;
 		}
-		method header($/) {
-			make $<title>.defined ?? ~$<title> !! Nil;
-		}
 		method content($/) {
-			make $/.values.[0].ast;
+			self!first($/);
 		}
 		method map($/) {
 			make @<map-entry>».ast.hash.item;
@@ -131,7 +131,7 @@ module YAMLish {
 			self.map($/);
 		}
 		method key($/) {
-			make $/.values.[0].ast;
+			self!first($/);
 		}
 		method list($/) {
 			make [ @<list-entry>».ast ];
@@ -140,7 +140,7 @@ module YAMLish {
 			make $<element>.ast;
 		}
 		method string($/) {
-			make $/.values.[0].ast;
+			self!first($/);
 		}
 		method unquoted($/) {
 			make ~$<value>;
@@ -152,7 +152,7 @@ module YAMLish {
 			make ~$/;
 		}
 		method element($/) {
-			make $/.values.[0].ast;
+			self!first($/);
 		}
 		method inline:sym<yes>($/) { make True }
 		method inline:sym<no>($/) { make False }
@@ -194,11 +194,11 @@ module YAMLish {
 
 	our sub load-yaml(Str $input) is export {
 		my $match = Grammar.parse($input, :$actions);
-		return $match ?? $match.ast[0] !! Nil;
+		return $match ?? $match.ast[0] !! fail "Couldn't parse YAML";
 	}
 	our sub load-yamls(Str $input) is export {
 		my $match = Grammar.parse($input, :$actions);
-		return $match ?? $match.ast !! Nil;
+		return $match ?? $match.ast !! fail "Couldn't parse YAML";
 	}
 
 	proto to-yaml($;$ = Str) {*}
@@ -242,7 +242,7 @@ module YAMLish {
 	sub save-yaml($document --> Str) is export {
 		to-yaml-doc($document) ~ "...";
 	}
-	sub save-yamls(*@documents --> Str) is export {
+	sub save-yamls(**@documents --> Str) is export {
 		@documents.map(&to-yaml-doc).join('') ~ "...";
 	}
 }
