@@ -85,6 +85,7 @@ module YAMLish {
 			[ 0 | <[1..9]> <[0..9]>* ]
 			[ \. <[0..9]>+ ]?
 			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
+			<|w>
 		}
 		token inline:sym<yes> { <yes> }
 		token inline:sym<no> { <no> }
@@ -99,6 +100,10 @@ module YAMLish {
 			$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
 			$<offset>=[ <[+-]> <[0..9]>**1..2]
 		}
+		token inline:sym<date> {
+			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
+		}
+
 
 		token element { <inline> | <block> | <block-string> }
 
@@ -181,7 +186,8 @@ module YAMLish {
 		method inline:sym<empty-list>($/) { make [] }
 		method inline:sym<plain>($/) { make $<plain>.ast }
 		method inline:sym<bareword>($/) { make $<bareword>.ast }
-		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash)}
+		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash».Int)}
+		method inline:sym<date>($/) { make Date.new(|$/.hash».Int)}
 
 		method block($/) { make $/.values.[0].ast }
 
