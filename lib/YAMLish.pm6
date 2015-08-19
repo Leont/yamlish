@@ -33,6 +33,9 @@ module YAMLish {
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
+		token plain {
+			<!before <key> <.ws>? ':'> <alpha> \N*
+		}
 		token string {
 			<single-quoted> | <double-quoted>
 		}
@@ -86,7 +89,7 @@ module YAMLish {
 		token inline:sym<yes> { <yes> }
 		token inline:sym<no> { <no> }
 		token inline:sym<null> { '~' }
-		token inline:sym<bareword> { <bareword> <!before ':'> }
+		token inline:sym<plain> { <plain> }
 		token inline:sym<empty-map> { '{}' }
 		token inline:sym<empty-list> { '[]' }
 		token inline:sym<string> { <string> }
@@ -158,6 +161,9 @@ module YAMLish {
 		method bareword($/) {
 			make ~$/;
 		}
+		method plain($/) {
+			make ~$/;
+		}
 		method block-string($/) {
 			 my $ret = @<content>.map(* ~ "\n").join('');
 			 $ret.=subst(/ \n <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
@@ -173,6 +179,7 @@ module YAMLish {
 		method inline:sym<null>($/) { make Any }
 		method inline:sym<empty-map>($/) { make {} }
 		method inline:sym<empty-list>($/) { make [] }
+		method inline:sym<plain>($/) { make $<plain>.ast }
 		method inline:sym<bareword>($/) { make $<bareword>.ast }
 		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash)}
 
