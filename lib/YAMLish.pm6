@@ -29,12 +29,12 @@ module YAMLish {
 			 <map-entry>+ % [ \n $*yaml-indent ]
 		}
 		token map-entry {
-			<key> <.ws>? ':' <!alpha> <.ws>? <element>
+			<key> <.ws>* ':' <!alpha> <.ws>* <element>
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
 		token plain {
-			<!before <key> <.ws>? ':'> <alpha> \N*
+			<!before <key> <.ws>* ':'> <alpha> \N*
 		}
 		token string {
 			<single-quoted> | <double-quoted>
