@@ -34,13 +34,13 @@ module YAMLish {
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
 		token string {
-			<unquoted> | <quoted>
+			<single-quoted> | <double-quoted>
 		}
 
-		token unquoted {
-			"'" $<value>=[ <-[\\']>* ] "'"
+		token single-quoted {
+			"'" $<value>=[ [ <-[\\']> | "''" ]* ] "'"
 		}
-		token quoted {
+		token double-quoted {
 			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> ]*
 		}
 		token quoted-bare {
@@ -149,10 +149,10 @@ module YAMLish {
 		method string($/) {
 			self!first($/);
 		}
-		method unquoted($/) {
-			make ~$<value>;
+		method single-quoted($/) {
+			make $<value>.Str.subst("''", "'", :g);
 		}
-		method quoted($/) {
+		method double-quoted($/) {
 			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
 		}
 		method bareword($/) {
