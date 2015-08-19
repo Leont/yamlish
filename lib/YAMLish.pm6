@@ -38,7 +38,7 @@ module YAMLish {
 		}
 
 		token unquoted {
-			"'" $<value>=[ <-[\\']>+ ] "'"
+			"'" $<value>=[ <-[\\']>* ] "'"
 		}
 		token quoted {
 			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> ]*
