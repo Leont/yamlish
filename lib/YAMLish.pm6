@@ -66,10 +66,10 @@ module YAMLish {
 		}
 
 		token yes {
-			:i y | yes | true | on
+			[ :i y | yes | true | on ] <|w>
 		}
 		token no {
-			:i n | no | false | off
+			[ :i n | no | false | off ] <|w>
 		}
 		token boolean {
 			<yes> | <no>
