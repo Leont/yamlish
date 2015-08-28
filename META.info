@@ -3,7 +3,7 @@
     "version" : "0.0.1",
     "description" : "An implementation of a useful subset of YAML",
     "provides" : {
-        "YAMLish"       : "lib/YAMLish.pm6",
+        "YAMLish"       : "lib/YAMLish.pm6"
     },
     "author" : "Leon Timmermans",
     "depends" : [ ],
