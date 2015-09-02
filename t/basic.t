@@ -58,8 +58,10 @@ my $text3 = q:heredoc/END/;
 ---
 User: ed
 Fatal: "Unknown variable \"bar\""
+  #comment
 Stack:
   - file: TopClass.pl
+  #comment 2
     line: 23
     code: "x = MoreObject(\"345\n\")"
   -

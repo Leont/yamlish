@@ -23,13 +23,19 @@ module YAMLish {
 		token footer { [ \n '...' ]? \n? $ }
 		token content { \n <map> | \n <list> | ' '+ <inline> | ' '+ <block-string> }
 		token map {
-			$*yaml-indent <map-entry>+ % [ \n $*yaml-indent ]
+			$*yaml-indent <map-entry>+ % [ <newline> $*yaml-indent ]
 		}
 		token inline-map {
-			 <map-entry>+ % [ \n $*yaml-indent ]
+			 <map-entry>+ % [ <newline> $*yaml-indent ]
+		}
+		token comment {
+			<[\s] - [\n]>* '#' \N*
+		}
+		token newline {
+			\n [ <comment> \n ]*
 		}
 		token map-entry {
-			<key> <.ws>* ':' <!alpha> <.ws>* <element>
+			<key> <.ws>* ':' <!alpha> <.ws>* <element> <comment>?
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
@@ -54,12 +60,12 @@ module YAMLish {
 		}
 
 		token list {
-			<list-entry>+ % \n
+			<list-entry>+ % <newline>
 		}
 		token list-entry {
 			$*yaml-indent '-'
 			[
-				<.ws>* <element>
+				<.ws>* <element> <comment>?
 			|
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
