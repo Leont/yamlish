@@ -13,7 +13,7 @@ module YAMLish {
 		token version {
 			'%YAML' ' '? <[\d.]>+ <.line-break>
 		}
-		token ws { <[\ \t]> }
+		token ws { <[\ \t]>* }
 		token TOP {
 			<version>?
 			[ <header> <content> ]+
@@ -29,7 +29,7 @@ module YAMLish {
 			 <map-entry>+ % [ <.newline> $*yaml-indent ]
 		}
 		token comment {
-			<.ws>* '#' <.non-break>
+			<.ws> '#' <.non-break>
 		}
 		token non-break {
 			<-[\x0a\x0d]>*
@@ -41,7 +41,7 @@ module YAMLish {
 			<.line-break> [ <.comment> <.line-break> ]*
 		}
 		token map-entry {
-			<key> <.ws>* ':' <!alpha> <.ws>* <element> <comment>?
+			<key> <.ws> ':' <!alpha> <.ws> <element> <comment>?
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
@@ -50,7 +50,7 @@ module YAMLish {
 			| <[?:-]> <!before ' ' | "\t">
 		}
 		token plain {
-			<!before <key> <.ws>* ':'> <.plainfirst> <.non-break>
+			<!before <key> <.ws> ':'> <.plainfirst> <.non-break>
 		}
 		token string {
 			<single-quoted> | <double-quoted>
@@ -73,9 +73,9 @@ module YAMLish {
 			<list-entry>+ % <.newline>
 		}
 		token list-entry {
-			$*yaml-indent '-' <before ' ' | <.line-break>>
+			$*yaml-indent '-' <?before ' ' | <.line-break>>
 			[
-				<.ws>* <element> <.comment>?
+				<.ws> <element> <.comment>?
 			|
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
@@ -93,6 +93,22 @@ module YAMLish {
 		token boolean {
 			<yes> | <no>
 		}
+		rule inline-map {
+			'{' <pairlist> '}'
+		}
+		rule pairlist {
+			<pair>* % \,
+		}
+		rule pair {
+			<key> ':' <inline>
+		}
+
+		rule inline-list {
+			'[' ~ ']' <inline-list-inside>
+		}
+		rule inline-list-inside {
+			<inline>* % \,
+		}
 
 		proto token inline { * }
 
@@ -107,8 +123,8 @@ module YAMLish {
 		token inline:sym<no> { <no> }
 		token inline:sym<null> { '~' }
 		token inline:sym<plain> { <plain> }
-		token inline:sym<empty-map> { '{}' }
-		token inline:sym<empty-list> { '[]' }
+		token inline:sym<inline-map> { <inline-map> }
+		token inline:sym<inline-list> { <inline-list> }
 		token inline:sym<string> { <string> }
 		token inline:sym<datetime> {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
@@ -120,20 +136,19 @@ module YAMLish {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 		}
 
-
 		token element { <inline> | <block> | <block-string> }
 
 		token block {
-			[ <.line-break> | <after <.line-break>> ]
+			[ <.line-break> | <?after <.line-break>> ]
 			:my $sp;
-			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
 			[ <list> | <map> ]
 		}
 		token block-string {
 			$<kind>=<[|\>]> <.line-break>
 			:my $sp;
-			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
 			[ $*yaml-indent $<content>=[ \N* ] ]+ % <.line-break>
 		}
@@ -193,13 +208,31 @@ module YAMLish {
 		method element($/) {
 			self!first($/);
 		}
+
+		method inline-map($/) {
+			make $<pairlist>.ast;
+		}
+		method pairlist($/) {
+			make $<pair>».ast.hash.item;
+		}
+		method pair($/) {
+			make $<key>.ast => $<inline>.ast;
+		}
+
+		method inline-list($/) {
+			make $<inline-list-inside>.ast
+		}
+		method inline-list-inside($/) {
+			make [ @<inline>».ast ];
+		}
+
 		method inline:sym<yes>($/) { make True }
 		method inline:sym<no>($/) { make False }
 		method inline:sym<number>($/) { make +$/.Str }
 		method inline:sym<string>($/) { make $<string>.ast }
 		method inline:sym<null>($/) { make Any }
-		method inline:sym<empty-map>($/) { make {} }
-		method inline:sym<empty-list>($/) { make [] }
+		method inline:sym<inline-map>($/) { make $<inline-map>.ast }
+		method inline:sym<inline-list>($/) { make $<inline-list>.ast }
 		method inline:sym<plain>($/) { make $<plain>.ast }
 		method inline:sym<bareword>($/) { make $<bareword>.ast }
 		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash».Int)}

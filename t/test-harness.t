@@ -482,10 +482,10 @@ plan(@SCHEDULE * 1);
 for (@SCHEDULE) -> %test {
 	my $name = %test<name>;
 
-	my $source = join( "\n", @( %test<in> ) ) ~ "\n";
+	my $source = %test<in>.join("\n") ~ "\n";
 
 	my $got = load-yaml($source);
-		my $want = %test<out>;
+	my $want = %test<out>;
 
 	if (%test<error> :exists) {
 		ok(!$got, "$name: No result");
