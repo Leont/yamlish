@@ -25,7 +25,7 @@ module YAMLish {
 		token map {
 			$*yaml-indent <map-entry>+ % [ <.newline> $*yaml-indent ]
 		}
-		token inline-map {
+		token cuddly-map {
 			 <map-entry>+ % [ <.newline> $*yaml-indent ]
 		}
 		token comment {
@@ -80,7 +80,7 @@ module YAMLish {
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
 				:temp $*yaml-indent ~= ' ' ~ $sp;
-				<element=inline-map>
+				<element=cuddly-map>
 			]
 		}
 
@@ -158,7 +158,7 @@ module YAMLish {
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
 		}
-		method inline-map($/) {
+		method cuddly-map($/) {
 			self.map($/);
 		}
 		method key($/) {
