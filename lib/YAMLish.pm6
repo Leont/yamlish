@@ -11,36 +11,46 @@ module YAMLish {
 			callsame;
 		}
 		token version {
-			'%YAML' ' '? <[\d.]>+ \n
+			'%YAML' ' '? <[\d.]>+ <.line-break>
 		}
-		token ws { <[\s] - [\n]> }
+		token ws { <[\ \t]> }
 		token TOP {
 			<version>?
 			[ <header> <content> ]+
 			<.footer>
 		}
 		token header { ^^ '---' }
-		token footer { [ \n '...' ]? \n? $ }
-		token content { \n <map> | \n <list> | ' '+ <inline> | ' '+ <block-string> }
+		token footer { [ <.newline> '...' ]? <.newline>?? $ }
+		token content { <.line-break> <map> | <.line-break> <list> | ' '+ <inline> | ' '+ <block-string> }
 		token map {
-			$*yaml-indent <map-entry>+ % [ <newline> $*yaml-indent ]
+			$*yaml-indent <map-entry>+ % [ <.newline> $*yaml-indent ]
 		}
 		token inline-map {
-			 <map-entry>+ % [ <newline> $*yaml-indent ]
+			 <map-entry>+ % [ <.newline> $*yaml-indent ]
 		}
 		token comment {
-			<[\s] - [\n]>* '#' \N*
+			<.ws>* '#' <.non-break>
+		}
+		token non-break {
+			<-[\x0a\x0d]>*
+		}
+		token line-break {
+			<[\x0a\x0D]>
 		}
 		token newline {
-			\n [ <comment> \n ]*
+			<.line-break> [ <.comment> <.line-break> ]*
 		}
 		token map-entry {
 			<key> <.ws>* ':' <!alpha> <.ws>* <element> <comment>?
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
+		token plainfirst {
+			<-[-?:,\[\]\{\}\#\&\*\!\|\>\'\"\%\@`\ \t]>
+			| <[?:-]> <!before ' ' | "\t">
+		}
 		token plain {
-			<!before <key> <.ws>* ':'> <alpha> \N*
+			<!before <key> <.ws>* ':'> <.plainfirst> <.non-break>
 		}
 		token string {
 			<single-quoted> | <double-quoted>
@@ -60,12 +70,12 @@ module YAMLish {
 		}
 
 		token list {
-			<list-entry>+ % <newline>
+			<list-entry>+ % <.newline>
 		}
 		token list-entry {
-			$*yaml-indent '-'
+			$*yaml-indent '-' <before ' ' | <.line-break>>
 			[
-				<.ws>* <element> <comment>?
+				<.ws>* <element> <.comment>?
 			|
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
@@ -114,18 +124,18 @@ module YAMLish {
 		token element { <inline> | <block> | <block-string> }
 
 		token block {
-			[ \n | <after \n> ]
+			[ <.line-break> | <after <.line-break>> ]
 			:my $sp;
 			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
 			[ <list> | <map> ]
 		}
 		token block-string {
-			$<kind>=<[|\>]> \n
+			$<kind>=<[|\>]> <.line-break>
 			:my $sp;
 			<before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
-			[ $*yaml-indent $<content>=\N* ]+ % \n
+			[ $*yaml-indent $<content>=[ \N* ] ]+ % <.line-break>
 		}
 	}
 
@@ -177,7 +187,7 @@ module YAMLish {
 		}
 		method block-string($/) {
 			 my $ret = @<content>.map(* ~ "\n").join('');
-			 $ret.=subst(/ \n <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
+			 $ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
 			 make $ret;
 		}
 		method element($/) {
