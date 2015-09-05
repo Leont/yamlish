@@ -66,7 +66,7 @@ module YAMLish {
 			<-["\\\n]>+
 		}
 		token quoted-escape {
-			<["\\/abefnrvtz]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
+			<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 		}
 
 		token list {
@@ -253,7 +253,12 @@ module YAMLish {
 				'r' => "\r",
 				'v' => "\x0b",
 				'z' => "\0",
-				'"' => "\"";
+				'"' => "\"",
+				' ' => ' ',
+				'N' => "\x85",
+				'_' => "\xA0",
+				'L' => "\x2028",
+				'P' => "\x2029";
 		method quoted-escape($/) {
 			if $<xdigit> {
 				make chr(:16($<xdigit>.join));
