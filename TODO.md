@@ -5,7 +5,6 @@
 - Tags
 - Sets
 - Ordered maps
-- Hexadecimal and octal numbers
 - Empty values
 - Block indentation indicator
 - Block chomping indicator
@@ -23,5 +22,4 @@
 - Flow node on new line
 - BOMs inside a character stream? (WTF)
 - Implicit documents
-- Special float values (inf, nan)
 - Special null values (null)

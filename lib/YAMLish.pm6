@@ -122,12 +122,39 @@ module YAMLish {
 
 		proto token inline { * }
 
-		token inline:sym<number> {
+		token inline:sym<int> {
+			'-'?
+			[ 0 | <[1..9]> <[0..9]>* ]
+			<|w>
+		}
+		token inline:sym<hex> {
+			:i
+			'-'?
+			'0x'
+			$<value>=[ <[0..9A..F]>+ ]
+			<|w>
+		}
+		token inline:sym<oct> {
+			:i
+			'-'?
+			'0o'
+			$<value>=[ <[0..7]>+ ]
+			<|w>
+		}
+		token inline:sym<float> {
 			'-'?
 			[ 0 | <[1..9]> <[0..9]>* ]
 			[ \. <[0..9]>+ ]?
 			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
 			<|w>
+		}
+		token inline:sym<inf> {
+			:i
+			$<sign>='-'?
+			'.inf'
+		}
+		token inline:sym<nan> {
+			:i '.nan'
 		}
 		token inline:sym<yes> { <yes> }
 		token inline:sym<no> { <no> }
@@ -236,9 +263,18 @@ module YAMLish {
 			make [ @<inline>».ast ];
 		}
 
+		method inline:sym<inf>($/) {
+			make $<sign> ?? -Inf !! Inf;
+		}
+		method inline:sym<nan>($/) {
+			make NaN;
+		}
 		method inline:sym<yes>($/) { make True }
 		method inline:sym<no>($/) { make False }
-		method inline:sym<number>($/) { make +$/.Str }
+		method inline:sym<int>($/) { make $/.Str.Int }
+		method inline:sym<hex>($/) { make :16($<value>.Str) }
+		method inline:sym<oct>($/) { make :8($<value>.Str) }
+		method inline:sym<float>($/) { make +$/.Str }
 		method inline:sym<string>($/) { make $<string>.ast }
 		method inline:sym<null>($/) { make Any }
 		method inline:sym<inline-map>($/) { make $<inline-map>.ast }
