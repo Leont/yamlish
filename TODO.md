@@ -11,9 +11,6 @@
 - Newline folding
   * Double quoting
   * Single quoting
-- Indentation in flow-style maps/lists
-- Indented empty lines
-- Inline comments
 - Directives
 - One line keys
 - Handle inside/outside flow

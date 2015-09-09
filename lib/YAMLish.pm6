@@ -30,6 +30,10 @@ module YAMLish {
 
 		token ws {
 			<.space>*
+			[ [ <!after <.alnum>> <.comment> ]? <.newline> <empty-line> ]*
+		}
+		token block-ws {
+			<.space>*
 			[ <!after <.alnum>> <.comment> <.newline> $*yaml-indent <.space>* ]*
 		}
 		token newline {
@@ -50,15 +54,18 @@ module YAMLish {
 		token non-break {
 			<-[\x0a\x0d]>*
 		}
+
+		token nb {
+			<[\x09\x20..\x10FFFF]>
 		}
 		token map-entry {
-			<key> <.space>* ':' <!alpha> <.ws> <element>
+			<key> <.space>* ':' <!alpha> <.block-ws> <element>
 		}
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
 		token plainfirst {
 			<-[-?:,\[\]\{\}\#\&\*\!\|\>\'\"\%\@`\ \t]>
-			| <[?:-]> <!before <space>>
+			| <[?:-]> <!before <.space> | <.line-break>>
 		}
 		token plain {
 			<!before <key> <.space>* ':'> <.plainfirst> <.non-break>
@@ -83,9 +90,9 @@ module YAMLish {
 			<list-entry>+ % <.newline>
 		}
 		token list-entry {
-			$*yaml-indent '-' <?before <space> | <.line-break>>
+			$*yaml-indent '-' <?before <.space> | <.line-break>>
 			[
-				<.ws> <element> <.comment>?
+				<.block-ws> <element> <.comment>?
 			|
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
@@ -103,8 +110,8 @@ module YAMLish {
 		token boolean {
 			<yes> | <no>
 		}
-		rule inline-map {
-			'{' <pairlist> '}'
+		token inline-map {
+			'{' <.ws> <pairlist> <.ws> '}'
 		}
 		rule pairlist {
 			<pair>* % \,
@@ -113,8 +120,8 @@ module YAMLish {
 			<key> ':' <inline>
 		}
 
-		rule inline-list {
-			'[' ~ ']' <inline-list-inside>
+		token inline-list {
+			'[' <.ws> <inline-list-inside> <.ws> ']'
 		}
 		rule inline-list-inside {
 			<inline>* % \,
