@@ -6,7 +6,7 @@ use YAMLish;
 
 my $text1 = q:heredoc/END/;
 ---
-- 1
+- &first 1
 -
   - 1
   - 0x10
@@ -16,7 +16,7 @@ my $text1 = q:heredoc/END/;
   baz: quz
 - { "baz": 1 }
 - [
-    1
+    *first
   ]
 ...
 END

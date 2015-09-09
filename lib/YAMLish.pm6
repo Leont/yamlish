@@ -4,10 +4,12 @@ module YAMLish {
 	grammar Grammar {
 		method parse($, *%) {
 			my $*yaml-indent = '';
+			my %*yaml-anchors;
 			callsame;
 		}
 		method subparse($, *%) {
 			my $*yaml-indent = '';
+			my %*yaml-anchors;
 			callsame;
 		}
 		token version {
@@ -127,6 +129,13 @@ module YAMLish {
 			<inline>* % \,
 		}
 
+		token identifier-char {
+			<[\x21..\x7E\x85\xA0..\xD7FF\xE000..\xFFFD\x10000..\x10FFFF]-[\,\[\]\{\}]>+
+		}
+		token identifier {
+			<identifier-char>+ <!before <identifier-char> >
+		}
+
 		proto token inline { * }
 
 		token inline:sym<int> {
@@ -170,6 +179,9 @@ module YAMLish {
 		token inline:sym<inline-map> { <inline-map> }
 		token inline:sym<inline-list> { <inline-list> }
 		token inline:sym<string> { <string> }
+		token inline:sym<alias> {
+			'*' <identifier>
+		}
 		token inline:sym<datetime> {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 			[ ' ' | 'T' ]
@@ -180,7 +192,12 @@ module YAMLish {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 		}
 
-		token element { <inline> <comment>? | <block> | <block-string> }
+		token element {
+			[ <anchor> <.space>+ ]? <value=inline> <.comment>? | <anchor>? <.block-ws> <value=block> | <anchor>? <.block-ws> <value=block-string>
+		}
+		token anchor {
+			'&' <identifier>
+		}
 
 		token block {
 			[ <.newline> | <?after <.newline>> ]
@@ -249,8 +266,13 @@ module YAMLish {
 			 $ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
 			 make $ret;
 		}
+
+		method !save($name, $node) {
+			%*yaml-anchors{$name} = $node.ast;
+		}
 		method element($/) {
-			self!first($/);
+			make $<value>.ast;
+			self!save($<anchor>.ast, $/) if $<anchor>;
 		}
 
 		method inline-map($/) {
@@ -262,7 +284,9 @@ module YAMLish {
 		method pair($/) {
 			make $<key>.ast => $<inline>.ast;
 		}
-
+		method identifier($/) {
+			make ~$/;
+		}
 		method inline-list($/) {
 			make $<inline-list-inside>.ast
 		}
@@ -287,11 +311,16 @@ module YAMLish {
 		method inline:sym<inline-map>($/) { make $<inline-map>.ast }
 		method inline:sym<inline-list>($/) { make $<inline-list>.ast }
 		method inline:sym<plain>($/) { make $<plain>.ast }
+		method inline:sym<alias>($/) { make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast }
 		method inline:sym<bareword>($/) { make $<bareword>.ast }
 		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash».Int)}
 		method inline:sym<date>($/) { make Date.new(|$/.hash».Int)}
 
 		method block($/) { make $/.values.[0].ast }
+
+		method anchor($/) {
+			make $<identifier>.ast;
+		}
 
 		method quoted-bare ($/) { make ~$/ }
 

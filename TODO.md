@@ -1,7 +1,6 @@
 # Needed for full YAML support
 
 - Complex mapping keys
-- Aliases/anchors
 - Tags
 - Sets
 - Ordered maps
