@@ -95,4 +95,4 @@ my $expected3 = {
 is-deeply(load-yaml($text3), $expected3, "Third test matches");
 is-deeply(load-yamls($text3), [ $expected3 ], "Third test matches in multi-doc mode too");
 
-done();
+done-testing();
