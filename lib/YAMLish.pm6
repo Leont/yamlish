@@ -22,7 +22,7 @@ module YAMLish {
 		}
 		token header { ^^ '---' }
 		token footer { [ <.newline> '...' ]? <.newline>?? $ }
-		token content { <.newline> <map> | <.newline> <list> | <.space>+ <inline> | <.space>+ <block-string> }
+		token content { <.newline> <map> | <.newline> <list> | <.space>+ <inline> | <.space>+ <block-string> | <.space>+ <plain> }
 
 		token ws {
 			<.space>*
@@ -39,16 +39,16 @@ module YAMLish {
 			<[\ \t]>
 		}
 		token comment {
-			'#' <.non-break>
+			'#' <-[\x0a\x0d]>*
 		}
 		token line-break {
 			<[\x0A\x0D]> | "\x0D\x0A"
 		}
+		token break {
+			<.line-break> | <.space>
+		}
 		token empty-line {
 			<.indent> <.space>*
-		}
-		token non-break {
-			<-[\x0a\x0d]>*
 		}
 		token indent {
 			$*yaml-indent
@@ -71,33 +71,39 @@ module YAMLish {
 			<map-entry>+ % [ <.newline> <.indent> ]
 		}
 		token map-entry {
-			<key> <.space>* ':' <!alpha> <.block-ws> <element>
+			<key> <.space>* ':' <?break> <.block-ws> <element>
 		}
 
 		token list {
 			<list-entry>+ % [ <.newline> <.indent> ]
 		}
 		token list-entry {
-			'-' <?before <.space> | <.line-break>>
+			'-' <?break>
 			[
-				<.block-ws> <element> <.comment>?
-			|
 				:my $sp;
 				$<sp>=' '+ { $sp = $<sp> }
 				:temp $*yaml-indent ~= ' ' ~ $sp;
 				[ <element=map> | <element=list> ]
+			  ||
+				<.block-ws> <element> <.comment>?
 			]
 		}
 
-		token key { <bareword> | <string> }
-		token bareword { <alpha> <[\w.-]>* }
+		token key {
+			| <inline-plain>
+			| <string>
+		}
 		token plainfirst {
-			<-[-?:,\[\]\{\}\#\&\*\!\|\>\'\"\%\@`\ \t]>
-			| <[?:-]> <!before <.space> | <.line-break>>
+			<-[\-\?\:\,\[\]\{\}\#\&\*\!\|\>\'\"\%\@\`\ \t]>
+			| <[\?\:\-]> <!before <.space> | <.line-break>>
 		}
 		token plain {
-			<!before <key> <.space>* ':'> <.plainfirst> <.non-break>
+			<.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]*
 		}
+		regex inline-plain {
+			<.plainfirst> : [ <-[\x0a\x0d\:\,\[\]\{\}]> | ':' <!break> ]* <!after <.space>> : <.space>*
+		}
+
 		token string {
 			<single-quoted> | <double-quoted>
 		}
@@ -137,14 +143,14 @@ module YAMLish {
 			<pair>* % \,
 		}
 		rule pair {
-			<key> ':' <inline>
+			<key> ':' [ <inline> || <inline=inline-plain> ]
 		}
 
 		token inline-list {
 			'[' <.ws> <inline-list-inside> <.ws> ']'
 		}
 		rule inline-list-inside {
-			<inline>* % \,
+			[ <inline> || <inline=inline-plain> ]* % \,
 		}
 
 		token identifier-char {
@@ -154,64 +160,78 @@ module YAMLish {
 			<identifier-char>+ <!before <identifier-char> >
 		}
 
-		proto token inline { * }
+		token inline {
+			| <int>
+			| <hex>
+			| <oct>
+			| <float>
+			| <inf>
+			| <nan>
+			| <yes>
+			| <no>
+			| <null>
+			| <inline-map>
+			| <inline-list>
+			| <string>
+			| <alias>
+			| <datetime>
+			| <date>
+		}
 
-		token inline:sym<int> {
+		token int {
 			'-'?
 			[ 0 | <[1..9]> <[0..9]>* ]
 			<|w>
 		}
-		token inline:sym<hex> {
+		token hex {
 			:i
 			'-'?
 			'0x'
 			$<value>=[ <[0..9A..F]>+ ]
 			<|w>
 		}
-		token inline:sym<oct> {
+		token oct {
 			:i
 			'-'?
 			'0o'
 			$<value>=[ <[0..7]>+ ]
 			<|w>
 		}
-		token inline:sym<float> {
+		token float {
 			'-'?
 			[ 0 | <[1..9]> <[0..9]>* ]
 			[ \. <[0..9]>+ ]?
 			[ <[eE]> [\+|\-]? <[0..9]>+ ]?
 			<|w>
 		}
-		token inline:sym<inf> {
+		token inf {
 			:i
 			$<sign>='-'?
 			'.inf'
 		}
-		token inline:sym<nan> {
+		token nan {
 			:i '.nan'
 		}
-		token inline:sym<yes> { <yes> }
-		token inline:sym<no> { <no> }
-		token inline:sym<null> { '~' }
-		token inline:sym<plain> { <plain> }
-		token inline:sym<inline-map> { <inline-map> }
-		token inline:sym<inline-list> { <inline-list> }
-		token inline:sym<string> { <string> }
-		token inline:sym<alias> {
+		token null {
+			'~'
+		}
+		token alias {
 			'*' <identifier>
 		}
-		token inline:sym<datetime> {
+		token datetime {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 			[ ' ' | 'T' ]
 			$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
 			$<offset>=[ <[+-]> <[0..9]>**1..2]
 		}
-		token inline:sym<date> {
+		token date {
 			$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 		}
 
 		token element {
-			[ <anchor> <.space>+ ]? <value=inline> <.comment>? | <anchor>? <.block-ws> <value=block> | <anchor>? <.block-ws> <value=block-string>
+			   <anchor>? <.block-ws> [ <value=block> | <value=block-string> ]
+			|| [ <anchor> <.space>+ ]? <value=inline> <.comment>?
+			|| [ <anchor> <.space>+ ]? <value=plain> <.comment>?
 		}
 		token anchor {
 			'&' <identifier>
@@ -258,11 +278,11 @@ module YAMLish {
 		method double-quoted($/) {
 			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
 		}
-		method bareword($/) {
-			make ~$/;
-		}
 		method plain($/) {
 			make ~$/;
+		}
+		method inline-plain($/) {
+			make $/.Str.subst(/ <[\ \t]>+ $/, '');
 		}
 		method block-string($/) {
 			 my $ret = @<content>.map(* ~ "\n").join('');
@@ -297,27 +317,46 @@ module YAMLish {
 			make [ @<inline>».ast ];
 		}
 
-		method inline:sym<inf>($/) {
+		method inline($/) {
+			self!first($/);
+		}
+
+		method inf($/) {
 			make $<sign> ?? -Inf !! Inf;
 		}
-		method inline:sym<nan>($/) {
+		method nan($/) {
 			make NaN;
 		}
-		method inline:sym<yes>($/) { make True }
-		method inline:sym<no>($/) { make False }
-		method inline:sym<int>($/) { make $/.Str.Int }
-		method inline:sym<hex>($/) { make :16($<value>.Str) }
-		method inline:sym<oct>($/) { make :8($<value>.Str) }
-		method inline:sym<float>($/) { make +$/.Str }
-		method inline:sym<string>($/) { make $<string>.ast }
-		method inline:sym<null>($/) { make Any }
-		method inline:sym<inline-map>($/) { make $<inline-map>.ast }
-		method inline:sym<inline-list>($/) { make $<inline-list>.ast }
-		method inline:sym<plain>($/) { make $<plain>.ast }
-		method inline:sym<alias>($/) { make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast }
-		method inline:sym<bareword>($/) { make $<bareword>.ast }
-		method inline:sym<datetime>($/) { make DateTime.new(|$/.hash».Int)}
-		method inline:sym<date>($/) { make Date.new(|$/.hash».Int)}
+		method yes($/) {
+			make True;
+		}
+		method no($/) {
+			make False;
+		}
+		method int($/) {
+			make $/.Str.Int;
+		}
+		method hex($/) {
+			make :16($<value>.Str);
+		}
+		method oct($/) {
+			make :8($<value>.Str);
+		}
+		method float($/) {
+			make +$/.Str;
+		}
+		method null($/) {
+			make Any;
+		}
+		method alias($/) {
+			make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast;
+		}
+		method datetime($/) {
+			make DateTime.new(|$/.hash».Int);
+		}
+		method date($/) {
+			make Date.new(|$/.hash».Int);
+		}
 
 		method block($/) { make $/.values.[0].ast }
 
