@@ -45,10 +45,13 @@ module YAMLish {
 			<[\x0A\x0D]> | "\x0D\x0A"
 		}
 		token empty-line {
-			$*yaml-indent <.space>*
+			<.indent> <.space>*
 		}
 		token non-break {
 			<-[\x0a\x0d]>*
+		}
+		token indent {
+			$*yaml-indent
 		}
 
 		token nb {
@@ -58,21 +61,21 @@ module YAMLish {
 		token block {
 			[ <.newline> | <?after <.newline>> ]
 			:my $sp;
-			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
-			$*yaml-indent
+			<.indent>
 			[ <list> | <map> ]
 		}
 
 		token map {
-			<map-entry>+ % [ <.newline> $*yaml-indent ]
+			<map-entry>+ % [ <.newline> <.indent> ]
 		}
 		token map-entry {
 			<key> <.space>* ':' <!alpha> <.block-ws> <element>
 		}
 
 		token list {
-			<list-entry>+ % [ <.newline> $*yaml-indent ]
+			<list-entry>+ % [ <.newline> <.indent> ]
 		}
 		token list-entry {
 			'-' <?before <.space> | <.line-break>>
@@ -113,9 +116,9 @@ module YAMLish {
 		token block-string {
 			$<kind>=<[|\>]> <.space>* <.comment>? <.line-break>
 			:my $sp;
-			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
-			[ $*yaml-indent $<content>=[ \N* ] ]+ % <.line-break>
+			[ <.indent> $<content>=[ \N* ] ]+ % <.line-break>
 		}
 
 		token yes {
