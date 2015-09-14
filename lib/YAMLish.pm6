@@ -23,12 +23,6 @@ module YAMLish {
 		token header { ^^ '---' }
 		token footer { [ <.newline> '...' ]? <.newline>?? $ }
 		token content { <.newline> <map> | <.newline> <list> | <.space>+ <inline> | <.space>+ <block-string> }
-		token map {
-			$*yaml-indent <map-entry>+ % [ <.newline> $*yaml-indent ]
-		}
-		token cuddly-map {
-			 <map-entry>+ % [ <.newline> $*yaml-indent ]
-		}
 
 		token ws {
 			<.space>*
@@ -60,9 +54,38 @@ module YAMLish {
 		token nb {
 			<[\x09\x20..\x10FFFF]>
 		}
+
+		token block {
+			[ <.newline> | <?after <.newline>> ]
+			:my $sp;
+			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			:temp $*yaml-indent ~= $sp;
+			$*yaml-indent
+			[ <list> | <map> ]
+		}
+
+		token map {
+			<map-entry>+ % [ <.newline> $*yaml-indent ]
+		}
 		token map-entry {
 			<key> <.space>* ':' <!alpha> <.block-ws> <element>
 		}
+
+		token list {
+			<list-entry>+ % [ <.newline> $*yaml-indent ]
+		}
+		token list-entry {
+			'-' <?before <.space> | <.line-break>>
+			[
+				<.block-ws> <element> <.comment>?
+			|
+				:my $sp;
+				$<sp>=' '+ { $sp = $<sp> }
+				:temp $*yaml-indent ~= ' ' ~ $sp;
+				[ <element=map> | <element=list> ]
+			]
+		}
+
 		token key { <bareword> | <string> }
 		token bareword { <alpha> <[\w.-]>* }
 		token plainfirst {
@@ -87,20 +110,12 @@ module YAMLish {
 		token quoted-escape {
 			<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 		}
-
-		token list {
-			<list-entry>+ % <.newline>
-		}
-		token list-entry {
-			$*yaml-indent '-' <?before <.space> | <.line-break>>
-			[
-				<.block-ws> <element> <.comment>?
-			|
-				:my $sp;
-				$<sp>=' '+ { $sp = $<sp> }
-				:temp $*yaml-indent ~= ' ' ~ $sp;
-				<element=cuddly-map>
-			]
+		token block-string {
+			$<kind>=<[|\>]> <.space>* <.comment>? <.line-break>
+			:my $sp;
+			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
+			:temp $*yaml-indent ~= $sp;
+			[ $*yaml-indent $<content>=[ \N* ] ]+ % <.line-break>
 		}
 
 		token yes {
@@ -197,21 +212,6 @@ module YAMLish {
 		}
 		token anchor {
 			'&' <identifier>
-		}
-
-		token block {
-			[ <.newline> | <?after <.newline>> ]
-			:my $sp;
-			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
-			:temp $*yaml-indent ~= $sp;
-			[ <list> | <map> ]
-		}
-		token block-string {
-			$<kind>=<[|\>]> <.space>* <.comment>? <.line-break>
-			:my $sp;
-			<?before $*yaml-indent $<sp>=' '+ { $sp = $<sp> }>
-			:temp $*yaml-indent ~= $sp;
-			[ $*yaml-indent $<content>=[ \N* ] ]+ % <.line-break>
 		}
 	}
 

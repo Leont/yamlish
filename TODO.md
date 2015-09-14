@@ -12,9 +12,8 @@
   * Single quoting
 - Directives
 - One line keys
-- Handle inside/outside flow
+- Handle inside/outside flow?
 - Explicit block mappings
-- Compact list in map
 - Flow node on new line
 - BOMs inside a character stream? (WTF)
 - Implicit documents
