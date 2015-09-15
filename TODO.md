@@ -8,7 +8,6 @@
 - Block indentation indicator
 - Block chomping indicator
 - Directives
-- Explicit block mappings
 - Flow node on new line
 - BOMs inside a character stream? (WTF)
 - Implicit documents

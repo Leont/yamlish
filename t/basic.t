@@ -14,6 +14,8 @@ my $text1 = q:heredoc/END/;
   foo: bar
   
   baz: quz
+  ? baaz
+  : buuz
 - { "baz": 1 }
 - [
     *first
@@ -24,7 +26,7 @@ my $text1 = q:heredoc/END/;
 END
 
 my $match = load-yaml($text1);
-is-deeply($match, [1, [1, 16], {:baz("quz"), :foo("bar")}, { :baz(1) }, [ 1 ], [1, 2] ], "First test matches");
+is-deeply($match, [1, [1, 16], {:baz("quz"), :foo("bar"), :baaz("buuz")}, { :baz(1) }, [ 1 ], [1, 2] ], "First test matches");
 
 
 

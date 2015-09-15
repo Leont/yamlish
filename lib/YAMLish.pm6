@@ -71,7 +71,9 @@ module YAMLish {
 			<map-entry>+ % [ <.newline> <.indent> ]
 		}
 		token map-entry {
-			<key> <.space>* ':' <?break> <.block-ws> <element>
+			  <key> <.space>* ':' <?break> <.block-ws> <element>
+			| '?' <.block-ws> <key=.element> <.newline> <.indent>
+			  <.space>* ':' <.space>+ <element>
 		}
 
 		token list {
