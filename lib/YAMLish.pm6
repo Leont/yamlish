@@ -111,13 +111,16 @@ module YAMLish {
 			"'" $<value>=[ [ <-[']> | "''" ]* ] "'"
 		}
 		token double-quoted {
-			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> ]*
+			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=foldable-whitespace> | <str=space> ]*
 		}
 		token quoted-bare {
-			<-["\\\n]>+
+			<-space-["\\\n]>+
 		}
 		token quoted-escape {
 			<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
+		}
+		token foldable-whitespace {
+			<.space>* <.line-break> <.space>*
 		}
 		token block-string {
 			$<kind>=<[|\>]> <.space>* <.comment>? <.line-break>
@@ -269,14 +272,20 @@ module YAMLish {
 		method list-entry($/) {
 			make $<element>.ast;
 		}
+		method space($/) {
+			make ~$/;
+		}
 		method string($/) {
 			self!first($/);
 		}
 		method single-quoted($/) {
-			make $<value>.Str.subst("''", "'", :g);
+			make $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
 		}
 		method double-quoted($/) {
 			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+		}
+		method foldable-whitespace($/) {
+			make ' ';
 		}
 		method plain($/) {
 			make ~$/;
@@ -379,6 +388,7 @@ module YAMLish {
 				'z' => "\0",
 				'"' => "\"",
 				' ' => ' ',
+				"\n"=> "\n",
 				'N' => "\x85",
 				'_' => "\xA0",
 				'L' => "\x2028",

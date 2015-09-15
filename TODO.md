@@ -7,9 +7,6 @@
 - Empty values
 - Block indentation indicator
 - Block chomping indicator
-- Newline folding
-  * Double quoting
-  * Single quoting
 - Directives
 - One line keys
 - Explicit block mappings

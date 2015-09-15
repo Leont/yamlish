@@ -42,6 +42,8 @@ dump:
   - '      01G   17C   00C        '
   - '      G A G G N R R N R      '
   - '        G     R     G        '
+comment: "foo
+bar"
 ...
 END
 my $expected2 = {
@@ -58,6 +60,7 @@ my $expected2 = {
 		"      G A G G N R R N R      ",
 		"        G     R     G        ",
 	],
+	comment => "foo bar",
 }
 is-deeply(load-yaml($text2), $expected2, "Second test matches");
 
