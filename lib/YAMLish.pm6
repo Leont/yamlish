@@ -91,7 +91,8 @@ module YAMLish {
 
 		token key {
 			| <inline-plain>
-			| <string>
+			| <single-key>
+			| <double-key>
 		}
 		token plainfirst {
 			<-[\-\?\:\,\[\]\{\}\#\&\*\!\|\>\'\"\%\@\`\ \t]>
@@ -103,10 +104,13 @@ module YAMLish {
 		regex inline-plain {
 			<.plainfirst> : [ <-[\x0a\x0d\:\,\[\]\{\}]> | ':' <!break> ]* <!after <.space>> : <.space>*
 		}
-
-		token string {
-			<single-quoted> | <double-quoted>
+		token single-key {
+			"'" $<value>=[ [ <-['\x0a]> | "''" ]* ] "'"
 		}
+		token double-key {
+			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=.space> ]*
+		}
+
 		token single-quoted {
 			"'" $<value>=[ [ <-[']> | "''" ]* ] "'"
 		}
@@ -175,7 +179,8 @@ module YAMLish {
 			| <null>
 			| <inline-map>
 			| <inline-list>
-			| <string>
+			| <single-quoted>
+			| <double-quoted>
 			| <alias>
 			| <datetime>
 			| <date>
@@ -275,14 +280,17 @@ module YAMLish {
 		method space($/) {
 			make ~$/;
 		}
-		method string($/) {
-			self!first($/);
-		}
 		method single-quoted($/) {
 			make $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
 		}
+		method single-key($/) {
+			make $<value>.Str.subst("''", "'", :g);
+		}
 		method double-quoted($/) {
 			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+		}
+		method double-key($/) {
+			self.double-quoted($/);
 		}
 		method foldable-whitespace($/) {
 			make ' ';
