@@ -65,7 +65,7 @@ module YAMLish {
 			<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
 			<.indent>
-			[ <list> | <map> ]
+			[ <value=list> | <value=map> ]
 		}
 
 		token map {
@@ -102,6 +102,7 @@ module YAMLish {
 			| <[\?\:\-]> <!before <.space> | <.line-break>>
 		}
 		token plain {
+			<properties>?
 			<.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]*
 		}
 		regex inline-plain {
@@ -130,7 +131,9 @@ module YAMLish {
 			<.space>* <.line-break> <.space>*
 		}
 		token block-string {
-			$<kind>=<[|\>]> <.space>* <.comment>? <.line-break>
+			<properties>?
+			$<kind>=<[\|\>]> <.space>*
+			<.comment>? <.line-break>
 			:my $sp;
 			<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
@@ -171,22 +174,31 @@ module YAMLish {
 		}
 
 		token inline {
-			| <int>
-			| <hex>
-			| <oct>
-			| <float>
-			| <inf>
-			| <nan>
-			| <yes>
-			| <no>
-			| <null>
-			| <inline-map>
-			| <inline-list>
-			| <single-quoted>
-			| <double-quoted>
-			| <alias>
-			| <datetime>
-			| <date>
+			<properties>?
+
+			[
+			| <value=int>
+			| <value=hex>
+			| <value=oct>
+			| <value=float>
+			| <value=inf>
+			| <value=nan>
+			| <value=yes>
+			| <value=no>
+			| <value=null>
+			| <value=inline-map>
+			| <value=inline-list>
+			| <value=single-quoted>
+			| <value=double-quoted>
+			| <value=alias>
+			| <value=datetime>
+			| <value=date>
+			]
+		}
+
+		token properties {
+			| <anchor> <.space>+ [ <tag> <.space>+ ]?
+			| <tag> <.space>+ [ <anchor> <.space>+ ]?
 		}
 
 		token int {
@@ -240,12 +252,16 @@ module YAMLish {
 		}
 
 		token element {
-			   <anchor>? <.block-ws> [ <value=block> | <value=block-string> ]
-			|| [ <anchor> <.space>+ ]? <value=inline> <.comment>?
-			|| [ <anchor> <.space>+ ]? <value=plain> <.comment>?
+			[  [ <value=block> | <value=block-string> ]
+			|  <value=inline> <.comment>?
+			|| <value=plain> <.comment>?
+			]
 		}
 		token anchor {
 			'&' <identifier>
+		}
+		token tag {
+			<!>
 		}
 	}
 
@@ -296,30 +312,29 @@ module YAMLish {
 			make ' ';
 		}
 		method plain($/) {
-			make ~$/;
+			make self!handle_properties($<properties>, $/, ~$/);
 		}
 		method inline-plain($/) {
 			make $/.Str.subst(/ <[\ \t]>+ $/, '');
 		}
 		method block-string($/) {
-			 my $ret = @<content>.map(* ~ "\n").join('');
-			 $ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
-			 make $ret;
+			my $ret = @<content>.map(* ~ "\n").join('');
+			$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
+			make self!handle_properties($<properties>, $/, $ret);
 		}
 
-		method !save($name, $node) {
-			%*yaml-anchors{$name} = $node.ast;
+		method !save($name, $value) {
+			%*yaml-anchors{$name} = $value;
 		}
 		method element($/) {
 			make $<value>.ast;
-			self!save($<anchor>.ast, $/) if $<anchor>;
 		}
 
 		method inline-map($/) {
-			make $<pairlist>.ast;
+			make $<pairlist>.ast.hash.item;
 		}
 		method pairlist($/) {
-			make $<pair>».ast.hash.item;
+			make [ @<pair>».ast ];
 		}
 		method pair($/) {
 			make $<key>.ast => $<inline>.ast;
@@ -334,8 +349,17 @@ module YAMLish {
 			make [ @<inline>».ast ];
 		}
 
+		method !decode_value($properties, $, $value) {
+			return $value;
+		}
+		method !handle_properties($properties, $ast, $original-value = $ast.ast) {
+			return $original-value if not $properties;
+			my $value = self!decode_value($properties, $ast, $original-value);
+			self!save($properties<anchor>.ast, $value) if $properties<anchor>;
+			return $value;
+		}
 		method inline($/) {
-			self!first($/);
+			make self!handle_properties($<properties>, $<value>);
 		}
 
 		method inf($/) {
@@ -375,7 +399,9 @@ module YAMLish {
 			make Date.new(|$/.hash».Int);
 		}
 
-		method block($/) { make $/.values.[0].ast }
+		method block($/) {
+			make self!handle_properties($<properties>, $<value>);
+		}
 
 		method anchor($/) {
 			make $<identifier>.ast;
