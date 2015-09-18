@@ -59,7 +59,8 @@ module YAMLish {
 		}
 
 		token block {
-			[ <.newline> | <?after <.newline>> ]
+			<properties>?
+			<.newline>
 			:my $sp;
 			<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
 			:temp $*yaml-indent ~= $sp;
@@ -120,7 +121,7 @@ module YAMLish {
 			\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=foldable-whitespace> | <str=space> ]*
 		}
 		token quoted-bare {
-			<-space-["\\\n]>+
+			<-space-[\"\\\n]>+
 		}
 		token quoted-escape {
 			<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
@@ -266,9 +267,6 @@ module YAMLish {
 		}
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
-		}
-		method cuddly-map($/) {
-			self.map($/);
 		}
 		method key($/) {
 			self!first($/);
