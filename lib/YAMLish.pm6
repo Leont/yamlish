@@ -1,15 +1,90 @@
 use v6;
 
 module YAMLish {
+
+	my $yaml-namespace = 'tag:yaml.org,2002:';
+	my %yaml-tags = (
+		$yaml-namespace => {
+			str => sub ($ast, $value) {
+				given $value {
+					when Str {
+						return $value;
+					}
+					when Bool|Numeric|Date|DateTime|*.defined.not {
+						return ~$ast;
+					}
+					when Positional|Associative {
+						die "Couldn't convert collection into string";
+					}
+					default {
+						die "Couldn't resolve { $value.WHAT } to string";
+					}
+				}
+			},
+			int => sub ($, $value) {
+				given $value {
+					when Numeric|Str|Bool {
+						return $value.Int;
+					}
+					default {
+						die "Couldn't resolve a { $value.WHAT } to integer";
+					}
+				}
+			},
+			float => sub ($, $value) {
+				given $value {
+					when Rat|Num {
+						return $value;
+					}
+					when Int|Str {
+						return $value.Rat;
+					}
+					default {
+						die "Couldn't resolve a { $value.WHAT } to float";
+					}
+				}
+			},
+			null => sub ($, $value) {
+				return Any;
+			},
+			binary => sub ($, $value) {
+				require MIME::Base64;
+				return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
+				die "Binary has to be a string";
+			},
+			seq => sub ($, $value) {
+				return $value if $value ~~ Iterable;
+				die "Could not convert { $value.WHAT } to a sequence";
+			},
+			map => sub ($, $value) {
+				return $value if $value ~~ Associative;
+				die "Could not convert { $value.WHAT } to am Associative";
+			},
+			set => sub ($ast, $value) {
+				return $value.keys.set if $value ~~ Associative;
+				die "Could not convert { $value.WHAT } to a set";
+			},
+			omap => sub ($ast, $value) {
+				die "Ordered maps not implemented yet"
+			},
+		},
+	);
+	my sub flatten-tags(%tags) {
+		return %tags.kv.map({ |$^value.kv.map($^namespace ~ * => *) } );
+	}
+	my %default-tags = flatten-tags(%yaml-tags);
+
 	grammar Grammar {
-		method parse($, *%) {
+		method parse($, :%tags, *%) {
 			my $*yaml-indent = '';
 			my %*yaml-anchors;
+			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 			callsame;
 		}
-		method subparse($, *%) {
+		method subparse($, :%tags, *%) {
 			my $*yaml-indent = '';
 			my %*yaml-anchors;
+			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 			callsame;
 		}
 		token version {
@@ -260,8 +335,38 @@ module YAMLish {
 		token anchor {
 			'&' <identifier>
 		}
+
 		token tag {
-			<!>
+			| <value=verbatim-tag>
+			| <value=shorthand-tag>
+			| <value=non-specific-tag>
+		}
+
+		token verbatim-tag {
+			'!<' [ <char=uri-escaped-char> | <char=uri-real-char> ]+ '>'
+		}
+		token uri-escaped-char {
+			:i '%' $<hex>=<[ 0..9 A..F ]>**2
+		}
+		token uri-real-char {
+			<[ 0..9 A..Z a..z \-#;/?:@&=+$,_.!~*'()\[\] ]>
+		}
+
+		token shorthand-tag {
+			<tag-handle> $<tag-name>=[ <tag-char>+ ]
+		}
+		token tag-handle {
+			'!' [ <[ A..Z a..z 0..9 ]>* '!' ]?
+		}
+		token tag-real-char {
+			<[ 0..9 A..Z a..z \-#;/?:@&=+$_.~*'() ]>
+		}
+		token tag-char {
+			[ <char=uri-escaped-char> | <char=tag-real-char> ]
+		}
+
+		token non-specific-tag {
+			'!'
 		}
 	}
 
@@ -348,8 +453,16 @@ module YAMLish {
 		method inline-list-inside($/) {
 			make [ @<inline>».ast ];
 		}
+		method inline($/) {
+			make self!handle_properties($<properties>, $<value>);
+		}
 
-		method !decode_value($properties, $, $value) {
+		method !decode_value($properties, $ast, $value) {
+			if $properties<tag> -> $tag {
+				return $value if $tag.ast eq '!';
+				my &resolve = %*yaml-tags{$tag.ast} // return die "Unknown tag { $tag.ast }";
+				return resolve($ast, $value);
+			}
 			return $value;
 		}
 		method !handle_properties($properties, $ast, $original-value = $ast.ast) {
@@ -358,8 +471,42 @@ module YAMLish {
 			self!save($properties<anchor>.ast, $value) if $properties<anchor>;
 			return $value;
 		}
-		method inline($/) {
-			make self!handle_properties($<properties>, $<value>);
+		method tag($/) {
+			make $<value>.ast;
+		}
+		method verbatim-tag($/) {
+			make @<char>».ast.join('');
+		}
+		method uri-char($/) {
+			make $<char>;
+		}
+		method uri-real-char($/) {
+			make ~$/;
+		}
+		method uri-escaped-char($/) {
+			:16(~$<hex>);
+		}
+		method !lookup-namespace($name) {
+			given $name {
+				when '!' {
+					return '!';
+				}
+				when '!!' {
+					return $yaml-namespace;
+				}
+				default {
+					die 'tag namespaces not supported yet';
+				}
+			}
+		}
+		method shorthand-tag($/) {
+			make self!lookup-namespace($<tag-handle>.ast) ~ ~$<tag-name>;
+		}
+		method tag-handle($/) {
+			make ~$/;
+		}
+		method non-specific-tag {
+			make '!';
 		}
 
 		method inf($/) {

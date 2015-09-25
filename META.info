@@ -6,6 +6,6 @@
         "YAMLish"       : "lib/YAMLish.pm6"
     },
     "author" : "Leon Timmermans",
-    "depends" : [ ],
+    "depends" : [ 'MIME::Base64' ],
     "source-url" : "git://github.com/leont/yamlish.git"
 }

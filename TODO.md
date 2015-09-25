@@ -2,8 +2,6 @@
 
 - Complex mapping keys
 - Tags
-- Sets
-- Ordered maps
 - Empty values
 - Block indentation indicator
 - Block chomping indicator
