@@ -97,7 +97,16 @@ module YAMLish {
 		}
 		token header { ^^ '---' }
 		token footer { [ <.newline> '...' ]? <.newline>?? $ }
-		token content { <.newline> <map> | <.newline> <list> | <.space>+ <inline> | <.space>+ <block-string> | <.space>+ <plain> }
+		token content {
+			| <.newline> <!before '---' | '...'> <map>
+			| <.newline> <list>
+			| <.begin-space> <inline>
+			| <.begin-space> <block-string>
+			| <.begin-space> <!before '---' | '...'> <plain>
+		}
+		token begin-space {
+			<?before <break>> <.ws>
+		}
 
 		token ws {
 			<.space>*
