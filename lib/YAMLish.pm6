@@ -326,6 +326,7 @@ module YAMLish {
 			| <value=int>
 			| <value=hex>
 			| <value=oct>
+			| <value=rat>
 			| <value=float>
 			| <value=inf>
 			| <value=nan>
@@ -364,6 +365,12 @@ module YAMLish {
 			'-'?
 			'0o'
 			$<value>=[ <[0..7]>+ ]
+			<|w>
+		}
+		token rat {
+			'-'?
+			[ 0 | <[1..9]> <[0..9]>* ]
+			\. <[0..9]>+
 			<|w>
 		}
 		token float {
@@ -622,10 +629,13 @@ module YAMLish {
 			make $/.Str.Int;
 		}
 		method hex($/) {
-			make :16($<value>.Str);
+			make :16(~$<value>);
 		}
 		method oct($/) {
-			make :8($<value>.Str);
+			make :8(~$<value>);
+		}
+		method rat($/) {
+			make $/.Rat;
 		}
 		method float($/) {
 			make +$/.Str;
