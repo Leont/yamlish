@@ -517,8 +517,11 @@ module YAMLish {
 			make ~$<value>
 		}
 		method block-string($/) {
-			my $ret = @<content>.map(* ~ "\n").join('');
-			$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g) if $<kind> eq '>';
+			my $ret = $<content>.map(* ~ "\n").join('');
+			if $<kind> eq '>' {
+				my $/;
+				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
+			}
 			make self!handle_properties($<properties>, $/, $ret);
 		}
 
