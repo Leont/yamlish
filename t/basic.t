@@ -102,4 +102,13 @@ my $expected3 = {
 is-deeply(load-yaml($text3), $expected3, "Third test matches");
 is-deeply(load-yamls($text3), [ $expected3 ], "Third test matches in multi-doc mode too");
 
+my $text4 = q:heredoc/END/;
+%TAG !yaml! tag:yaml.org,2002:
+---
+!yaml!str "foo"
+...
+END
+my $expected4 = "foo";
+is(load-yaml($text4), $expected4, 'Tags and directives seem to work');
+
 done-testing();

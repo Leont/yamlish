@@ -79,25 +79,79 @@ module YAMLish {
 			my $*yaml-indent = '';
 			my %*yaml-anchors;
 			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
+			my $*yaml-version = 1.2;
+			my %*yaml-prefix;
 			callsame;
 		}
 		method subparse($, :%tags, *%) {
 			my $*yaml-indent = '';
 			my %*yaml-anchors;
 			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
+			my $*yaml-version = 1.2;
+			my %*yaml-prefix;
 			callsame;
 		}
-		token version {
-			'%YAML' ' '? <[\d.]>+ <.line-break>
-		}
 		token TOP {
-			<version>?
-			[ <header> <content> ]+
-			<.footer>
+			<.document-prefix>?
+			<document=any-document>
+			[
+			| <.document-suffix>+ <.document-prefix>* <document=any-document>?
+			| <.document-prefix>* <document=explicit-document>
+			]*
 		}
-		token header { ^^ '---' }
-		token footer { [ <.newline> '...' ]? <.newline>?? $ }
-		token content {
+		token document-prefix {
+			<.bom>? <.comment-line>* <?{ $/.chars > 0 }>
+		}
+		token bom {
+			"\x[FEFF]"
+		}
+		token comment-line {
+			<.space>* <.comment> [ <line-break> || $ ]
+		}
+		token document-suffix {
+			<.line-break> <.document-end> <.comment>? [ <.line-break> | $ ] <.comment-line>*
+		}
+		token any-document {
+			| <directive-document>
+			| <explicit-document>
+			| <bare-document>
+		}
+		token directive-document {
+			<directives>
+			{  }
+			:my %*yaml-prefix = %( $<directives>.ast<tags> );
+			<explicit-document>
+		}
+		token directives {
+			[ '%' [ <yaml-directive> | <tag-directive> ] <.space>* <.line-break> ]+
+		}
+		token yaml-directive {
+			'YAML' <.space>+ $<version>=[ <[0..9]>+ \. <[0..9]>+ ]
+		}
+		token tag-directive {
+			'TAG' <.space>+ <tag-handle> <.space>+ <tag-prefix>
+		}
+		token tag-prefix {
+			| '!' <.uri-char>+
+			| <.tag-char> <.uri-char>*
+		}
+		token explicit-document	{
+			<.directives-end>
+			[
+			| <document=bare-document>
+			| <document=empty-document>
+			]
+		}
+		token empty-document {
+			<.comment-line>* <?before <document-suffix> | <document-prefix> | $>
+		}
+		token directives-end {
+			'---'
+		}
+		token document-end {
+			'...'
+		}
+		token bare-document {
 			| <.newline> <!before '---' | '...'> <map>
 			| <.newline> <list>
 			| <.begin-space> <inline>
@@ -352,7 +406,10 @@ module YAMLish {
 		}
 
 		token verbatim-tag {
-			'!<' [ <char=uri-escaped-char> | <char=uri-real-char> ]+ '>'
+			'!<' <uri-char>+ '>'
+		}
+		token uri-char {
+			<char=uri-escaped-char> | <char=uri-real-char>
 		}
 		token uri-escaped-char {
 			:i '%' $<hex>=<[ 0..9 A..F ]>**2
@@ -381,16 +438,33 @@ module YAMLish {
 
 	class Actions {
 		method TOP($/) {
-			make [ @<content>».ast ];
+			make [ @<document>».ast ];
 		}
 		method !first($/) {
 			make $/.values.[0].ast;
 		}
-		method document($/) {
-			make $<header>.ast => $<content>.ast;
-		}
-		method content($/) {
+		method any-document($/) {
 			self!first($/);
+		}
+		method directive-document($/) {
+			make $<explicit-document>.ast;
+		}
+		method directives($/) {
+			my %tags = @<tag-directive>».ast;
+			my $version = $<version-directive>.ast // 1.2;
+			make { :%tags, :$version };
+		}
+		method tag-directive($/) {
+			make ~$<tag-handle> => ~$<tag-prefix>
+		}
+		method explicit-document($/) {
+			make $<document>.ast;
+		}
+		method bare-document($/) {
+			self!first($/);
+		}
+		method empty-document($/) {
+			make Any;
 		}
 		method map($/) {
 			make @<map-entry>».ast.hash.item;
@@ -484,7 +558,7 @@ module YAMLish {
 			make $<value>.ast;
 		}
 		method verbatim-tag($/) {
-			make @<char>».ast.join('');
+			make @<uri-char>».ast.join('');
 		}
 		method uri-char($/) {
 			make $<char>;
@@ -496,15 +570,15 @@ module YAMLish {
 			:16(~$<hex>);
 		}
 		method !lookup-namespace($name) {
-			given $name {
+			return %*yaml-prefix{$name} // do given $name {
 				when '!' {
-					return '!';
+					'!';
 				}
 				when '!!' {
-					return $yaml-namespace;
+					$yaml-namespace;
 				}
 				default {
-					die 'tag namespaces not supported yet';
+					die "No such prefix $name known: " ~ %*yaml-prefix.keys.join(", ");
 				}
 			}
 		}
