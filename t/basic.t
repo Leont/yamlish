@@ -7,7 +7,7 @@ use YAMLish;
 my $text1 = q:heredoc/END/;
 ---
 - &first 1
--
+- 
   - 1
   - 0x10
 -

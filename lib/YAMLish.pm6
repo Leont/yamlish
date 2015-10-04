@@ -164,14 +164,15 @@ module YAMLish {
 
 		token ws {
 			<.space>*
-			[ [ <!after <.alnum>> <.comment> ]? <.newline> <empty-line> ]*
+			[ [ <!after <.alnum>> <.comment> ]? <.line-break> <.empty-line> ]*
 		}
 		token block-ws {
 			<.space>*
-			[ <!after <.alnum>> <.comment> <.newline> $*yaml-indent <.space>* ]*
+			[ <!after <.alnum>> <.comment> <.line-break> $*yaml-indent <.space>* ]*
 		}
 		token newline {
-			<.space>* <.comment>? <.line-break> [ [ <.space>* <.comment> | <empty-line> ] <.line-break> ]*
+			<.space>* <.comment>? <.line-break>
+			[ [ <.space>* <.comment> | <.empty-line> ] <.line-break> ]*
 		}
 		token space {
 			<[\ \t]>
@@ -221,13 +222,15 @@ module YAMLish {
 		token list-entry {
 			'-' <?break>
 			[
-				:my $sp;
-				$<sp>=' '+ { $sp = $<sp> }
-				:temp $*yaml-indent ~= ' ' ~ $sp;
-				[ <element=map> | <element=list> ]
-			  ||
-				<.block-ws> <element> <.comment>?
+			  || <element=cuddly-list-entry>
+			  || <.block-ws> <element> <.comment>?
 			]
+		}
+		token cuddly-list-entry {
+			:my $sp;
+			$<sp>=' '+ { $sp = $<sp> }
+			:temp $*yaml-indent ~= ' ' ~ $sp;
+			[ <element=map> | <element=list> ]
 		}
 
 		token key {
@@ -236,7 +239,7 @@ module YAMLish {
 			| <double-key>
 		}
 		token plainfirst {
-			<-[\-\?\:\,\[\]\{\}\#\&\*\!\|\>\'\"\%\@\`\ \t]>
+			<-[\-\?\:\,\[\]\{\}\#\&\*\!\|\>\'\"\%\@\`\ \t\x0a\x0d]>
 			| <[\?\:\-]> <!before <.space> | <.line-break>>
 		}
 		token plain {
@@ -244,7 +247,12 @@ module YAMLish {
 			<.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]*
 		}
 		regex inline-plain {
-			<.plainfirst> : [ <-[\x0a\x0d\:\,\[\]\{\}]> | ':' <!break> ]* <!after <.space>> : <.space>*
+			$<value> = [
+				<.plainfirst> :
+				[ <-[\x0a\x0d\:\,\[\]\{\}]> | ':' <!break> ]*
+				<!after <.space>> :
+			]
+			<.space>*
 		}
 		token single-key {
 			"'" $<value>=[ [ <-['\x0a]> | "''" ]* ] "'"
@@ -481,6 +489,9 @@ module YAMLish {
 		method list-entry($/) {
 			make $<element>.ast;
 		}
+		method cuddly-list-entry($/) {
+			make $<element>.ast;
+		}
 		method space($/) {
 			make ~$/;
 		}
@@ -503,7 +514,7 @@ module YAMLish {
 			make self!handle_properties($<properties>, $/, ~$/);
 		}
 		method inline-plain($/) {
-			make $/.Str.subst(/ <[\ \t]>+ $/, '');
+			make ~$<value>
 		}
 		method block-string($/) {
 			my $ret = @<content>.map(* ~ "\n").join('');
