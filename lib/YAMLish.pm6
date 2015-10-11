@@ -106,10 +106,13 @@ module YAMLish {
 			"\x[FEFF]"
 		}
 		token comment-line {
-			<.space>* <.comment> [ <line-break> || $ ]
+			<.space>* <.comment> <.line-end>
+		}
+		token line-end {
+			<line-break> | $
 		}
 		token document-suffix {
-			<.line-break> <.document-end> <.comment>? [ <.line-break> | $ ] <.comment-line>*
+			<.document-end> <.comment>? <.line-end> <.comment-line>*
 		}
 		token any-document {
 			| <directive-document>
@@ -152,11 +155,14 @@ module YAMLish {
 			'...'
 		}
 		token bare-document {
+			[
 			| <.newline> <!before '---' | '...'> <map>
 			| <.newline> <list>
 			| <.begin-space> <inline>
 			| <.begin-space> <block-string>
 			| <.begin-space> <!before '---' | '...'> <plain>
+			]
+			<.line-end>
 		}
 		token begin-space {
 			<?before <break>> <.ws>

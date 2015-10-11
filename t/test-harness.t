@@ -262,13 +262,13 @@ my @SCHEDULE = (
 		],
 		name => 'one_scalar2',
 	},
-	{   in => [
+	{   out =>  'foo',
+		in => [
 			'--- foo',
 			'--- bar',
 			'...'
 		],
 		name  => 'two_scalar',
-		error => rx{Missing\s+'[.][.][.]'},
 	},
 	{   out => ['foo'],
 		in  => [
