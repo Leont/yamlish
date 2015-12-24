@@ -184,10 +184,10 @@ module YAMLish {
 			<[\ \t]>
 		}
 		token comment {
-			'#' <-[\x0a\x0d]>*
+			'#' <-line-break>*
 		}
 		token line-break {
-			<[\x0A\x0D]> | "\x0D\x0A"
+			<[ \c[LF] \r \r\c[LF]] >
 		}
 		token break {
 			<.line-break> | <.space>
