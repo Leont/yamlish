@@ -75,22 +75,6 @@ module YAMLish {
 	my %default-tags = flatten-tags(%yaml-tags);
 
 	grammar Grammar {
-		method parse($, :%tags, *%) {
-			my $*yaml-indent = '';
-			my %*yaml-anchors;
-			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
-			my $*yaml-version = 1.2;
-			my %*yaml-prefix;
-			callsame;
-		}
-		method subparse($, :%tags, *%) {
-			my $*yaml-indent = '';
-			my %*yaml-anchors;
-			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
-			my $*yaml-version = 1.2;
-			my %*yaml-prefix;
-			callsame;
-		}
 		token TOP {
 			<.document-prefix>?
 			<document=any-document>
@@ -455,256 +439,270 @@ module YAMLish {
 		token non-specific-tag {
 			'!'
 		}
+
+		class Actions {
+			method TOP($/) {
+				make ( @<document>».ast );
+			}
+			method !first($/) {
+				make $/.values.[0].ast;
+			}
+			method any-document($/) {
+				self!first($/);
+			}
+			method directive-document($/) {
+				make $<explicit-document>.ast;
+			}
+			method directives($/) {
+				my %tags = @<tag-directive>».ast;
+				my $version = $<version-directive>.ast // 1.2;
+				make { :%tags, :$version };
+			}
+			method tag-directive($/) {
+				make ~$<tag-handle> => ~$<tag-prefix>
+			}
+			method explicit-document($/) {
+				make $<document>.ast;
+			}
+			method bare-document($/) {
+				self!first($/);
+			}
+			method empty-document($/) {
+				make Any;
+			}
+			method map($/) {
+				make @<map-entry>».ast.hash.item;
+			}
+			method map-entry($/) {
+				make $<key>.ast => $<element>.ast
+			}
+			method key($/) {
+				self!first($/);
+			}
+			method list($/) {
+				make [ @<list-entry>».ast ];
+			}
+			method list-entry($/) {
+				make $<element>.ast;
+			}
+			method cuddly-list-entry($/) {
+				make $<element>.ast;
+			}
+			method space($/) {
+				make ~$/;
+			}
+			method single-quoted($/) {
+				make $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
+			}
+			method single-key($/) {
+				make $<value>.Str.subst("''", "'", :g);
+			}
+			method double-quoted($/) {
+				make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+			}
+			method double-key($/) {
+				self.double-quoted($/);
+			}
+			method foldable-whitespace($/) {
+				make ' ';
+			}
+			method plain($/) {
+				make self!handle_properties($<properties>, $/, ~$/);
+			}
+			method inline-plain($/) {
+				make ~$<value>
+			}
+			method block-string($/) {
+				my $ret = $<content>.map(* ~ "\n").join('');
+				if $<kind> eq '>' {
+					my $/;
+					$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
+				}
+				make self!handle_properties($<properties>, $/, $ret);
+			}
+
+			method !save($name, $value) {
+				%*yaml-anchors{$name} = $value;
+			}
+			method element($/) {
+				make $<value>.ast;
+			}
+
+			method inline-map($/) {
+				make $<pairlist>.ast.hash.item;
+			}
+			method pairlist($/) {
+				make [ @<pair>».ast ];
+			}
+			method pair($/) {
+				make $<key>.ast => $<inline>.ast;
+			}
+			method identifier($/) {
+				make ~$/;
+			}
+			method inline-list($/) {
+				make $<inline-list-inside>.ast
+			}
+			method inline-list-inside($/) {
+				make [ @<inline>».ast ];
+			}
+			method inline($/) {
+				make self!handle_properties($<properties>, $<value>);
+			}
+
+			method !decode_value($properties, $ast, $value) {
+				if $properties<tag> -> $tag {
+					return $value if $tag.ast eq '!';
+					my &resolve = %*yaml-tags{$tag.ast} // return die "Unknown tag { $tag.ast }";
+					return resolve($ast, $value);
+				}
+				return $value;
+			}
+			method !handle_properties($properties, $ast, $original-value = $ast.ast) {
+				return $original-value if not $properties;
+				my $value = self!decode_value($properties, $ast, $original-value);
+				self!save($properties<anchor>.ast, $value) if $properties<anchor>;
+				return $value;
+			}
+			method tag($/) {
+				make $<value>.ast;
+			}
+			method verbatim-tag($/) {
+				make @<uri-char>».ast.join('');
+			}
+			method uri-char($/) {
+				make $<char>;
+			}
+			method uri-real-char($/) {
+				make ~$/;
+			}
+			method uri-escaped-char($/) {
+				:16(~$<hex>);
+			}
+			method !lookup-namespace($name) {
+				return %*yaml-prefix{$name} // do given $name {
+					when '!' {
+						'!';
+					}
+					when '!!' {
+						$yaml-namespace;
+					}
+					default {
+						die "No such prefix $name known: " ~ %*yaml-prefix.keys.join(", ");
+					}
+				}
+			}
+			method shorthand-tag($/) {
+				make self!lookup-namespace($<tag-handle>.ast) ~ ~$<tag-name>;
+			}
+			method tag-handle($/) {
+				make ~$/;
+			}
+			method non-specific-tag {
+				make '!';
+			}
+
+			method inf($/) {
+				make $<sign> ?? -Inf !! Inf;
+			}
+			method nan($/) {
+				make NaN;
+			}
+			method yes($/) {
+				make True;
+			}
+			method no($/) {
+				make False;
+			}
+			method int($/) {
+				make $/.Str.Int;
+			}
+			method hex($/) {
+				make :16(~$<value>);
+			}
+			method oct($/) {
+				make :8(~$<value>);
+			}
+			method rat($/) {
+				make $/.Rat;
+			}
+			method float($/) {
+				make +$/.Str;
+			}
+			method null($/) {
+				make Any;
+			}
+			method alias($/) {
+				make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast;
+			}
+			method datetime($/) {
+				make DateTime.new(|$/.hash».Int);
+			}
+			method date($/) {
+				make Date.new(|$/.hash».Int);
+			}
+
+			method block($/) {
+				make self!handle_properties($<properties>, $<value>);
+			}
+
+			method anchor($/) {
+				make $<identifier>.ast;
+			}
+
+			method quoted-bare ($/) { make ~$/ }
+
+			my %h = '\\' => "\\",
+					'/' => "/",
+					'a' => "\a",
+					'b' => "\b",
+					'e' => "\e",
+					'n' => "\n",
+					't' => "\t",
+					'f' => "\f",
+					'r' => "\r",
+					'v' => "\x0b",
+					'z' => "\0",
+					'"' => "\"",
+					' ' => ' ',
+					"\n"=> "\n",
+					'N' => "\x85",
+					'_' => "\xA0",
+					'L' => "\x2028",
+					'P' => "\x2029";
+			method quoted-escape($/) {
+				if $<xdigit> {
+					make chr(:16($<xdigit>.join));
+				} else {
+					make %h{~$/};
+				}
+			}
+		}
+
+		method parse($string, :%tags, *%args) {
+			my $*yaml-indent = '';
+			my %*yaml-anchors;
+			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
+			my $*yaml-version = 1.2;
+			my %*yaml-prefix;
+			nextwith($string, :actions(Actions), |%args);
+		}
+		method subparse($string, :%tags, *%args) {
+			my $*yaml-indent = '';
+			my %*yaml-anchors;
+			my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
+			my $*yaml-version = 1.2;
+			my %*yaml-prefix;
+			nextwith($string, :actions(Actions), |%args);
+		}
 	}
-
-	class Actions {
-		method TOP($/) {
-			make [ @<document>».ast ];
-		}
-		method !first($/) {
-			make $/.values.[0].ast;
-		}
-		method any-document($/) {
-			self!first($/);
-		}
-		method directive-document($/) {
-			make $<explicit-document>.ast;
-		}
-		method directives($/) {
-			my %tags = @<tag-directive>».ast;
-			my $version = $<version-directive>.ast // 1.2;
-			make { :%tags, :$version };
-		}
-		method tag-directive($/) {
-			make ~$<tag-handle> => ~$<tag-prefix>
-		}
-		method explicit-document($/) {
-			make $<document>.ast;
-		}
-		method bare-document($/) {
-			self!first($/);
-		}
-		method empty-document($/) {
-			make Any;
-		}
-		method map($/) {
-			make @<map-entry>».ast.hash.item;
-		}
-		method map-entry($/) {
-			make $<key>.ast => $<element>.ast
-		}
-		method key($/) {
-			self!first($/);
-		}
-		method list($/) {
-			make [ @<list-entry>».ast ];
-		}
-		method list-entry($/) {
-			make $<element>.ast;
-		}
-		method cuddly-list-entry($/) {
-			make $<element>.ast;
-		}
-		method space($/) {
-			make ~$/;
-		}
-		method single-quoted($/) {
-			make $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
-		}
-		method single-key($/) {
-			make $<value>.Str.subst("''", "'", :g);
-		}
-		method double-quoted($/) {
-			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
-		}
-		method double-key($/) {
-			self.double-quoted($/);
-		}
-		method foldable-whitespace($/) {
-			make ' ';
-		}
-		method plain($/) {
-			make self!handle_properties($<properties>, $/, ~$/);
-		}
-		method inline-plain($/) {
-			make ~$<value>
-		}
-		method block-string($/) {
-			my $ret = $<content>.map(* ~ "\n").join('');
-			if $<kind> eq '>' {
-				my $/;
-				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
-			}
-			make self!handle_properties($<properties>, $/, $ret);
-		}
-
-		method !save($name, $value) {
-			%*yaml-anchors{$name} = $value;
-		}
-		method element($/) {
-			make $<value>.ast;
-		}
-
-		method inline-map($/) {
-			make $<pairlist>.ast.hash.item;
-		}
-		method pairlist($/) {
-			make [ @<pair>».ast ];
-		}
-		method pair($/) {
-			make $<key>.ast => $<inline>.ast;
-		}
-		method identifier($/) {
-			make ~$/;
-		}
-		method inline-list($/) {
-			make $<inline-list-inside>.ast
-		}
-		method inline-list-inside($/) {
-			make [ @<inline>».ast ];
-		}
-		method inline($/) {
-			make self!handle_properties($<properties>, $<value>);
-		}
-
-		method !decode_value($properties, $ast, $value) {
-			if $properties<tag> -> $tag {
-				return $value if $tag.ast eq '!';
-				my &resolve = %*yaml-tags{$tag.ast} // return die "Unknown tag { $tag.ast }";
-				return resolve($ast, $value);
-			}
-			return $value;
-		}
-		method !handle_properties($properties, $ast, $original-value = $ast.ast) {
-			return $original-value if not $properties;
-			my $value = self!decode_value($properties, $ast, $original-value);
-			self!save($properties<anchor>.ast, $value) if $properties<anchor>;
-			return $value;
-		}
-		method tag($/) {
-			make $<value>.ast;
-		}
-		method verbatim-tag($/) {
-			make @<uri-char>».ast.join('');
-		}
-		method uri-char($/) {
-			make $<char>;
-		}
-		method uri-real-char($/) {
-			make ~$/;
-		}
-		method uri-escaped-char($/) {
-			:16(~$<hex>);
-		}
-		method !lookup-namespace($name) {
-			return %*yaml-prefix{$name} // do given $name {
-				when '!' {
-					'!';
-				}
-				when '!!' {
-					$yaml-namespace;
-				}
-				default {
-					die "No such prefix $name known: " ~ %*yaml-prefix.keys.join(", ");
-				}
-			}
-		}
-		method shorthand-tag($/) {
-			make self!lookup-namespace($<tag-handle>.ast) ~ ~$<tag-name>;
-		}
-		method tag-handle($/) {
-			make ~$/;
-		}
-		method non-specific-tag {
-			make '!';
-		}
-
-		method inf($/) {
-			make $<sign> ?? -Inf !! Inf;
-		}
-		method nan($/) {
-			make NaN;
-		}
-		method yes($/) {
-			make True;
-		}
-		method no($/) {
-			make False;
-		}
-		method int($/) {
-			make $/.Str.Int;
-		}
-		method hex($/) {
-			make :16(~$<value>);
-		}
-		method oct($/) {
-			make :8(~$<value>);
-		}
-		method rat($/) {
-			make $/.Rat;
-		}
-		method float($/) {
-			make +$/.Str;
-		}
-		method null($/) {
-			make Any;
-		}
-		method alias($/) {
-			make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast;
-		}
-		method datetime($/) {
-			make DateTime.new(|$/.hash».Int);
-		}
-		method date($/) {
-			make Date.new(|$/.hash».Int);
-		}
-
-		method block($/) {
-			make self!handle_properties($<properties>, $<value>);
-		}
-
-		method anchor($/) {
-			make $<identifier>.ast;
-		}
-
-		method quoted-bare ($/) { make ~$/ }
-
-		my %h = '\\' => "\\",
-				'/' => "/",
-				'a' => "\a",
-				'b' => "\b",
-				'e' => "\e",
-				'n' => "\n",
-				't' => "\t",
-				'f' => "\f",
-				'r' => "\r",
-				'v' => "\x0b",
-				'z' => "\0",
-				'"' => "\"",
-				' ' => ' ',
-				"\n"=> "\n",
-				'N' => "\x85",
-				'_' => "\xA0",
-				'L' => "\x2028",
-				'P' => "\x2029";
-		method quoted-escape($/) {
-			if $<xdigit> {
-				make chr(:16($<xdigit>.join));
-			} else {
-				make %h{~$/};
-			}
-		}
-	}
-
-	my $parser = Grammar.new;
-	my $actions = Actions.new;
 
 	our sub load-yaml(Str $input) is export {
-		my $match = Grammar.parse($input, :$actions);
+		my $match = Grammar.parse($input);
 		return $match ?? $match.ast[0] !! fail "Couldn't parse YAML";
 	}
 	our sub load-yamls(Str $input) is export {
-		my $match = Grammar.parse($input, :$actions);
+		my $match = Grammar.parse($input);
 		return $match ?? $match.ast !! fail "Couldn't parse YAML";
 	}
 
