@@ -186,11 +186,11 @@ grammar Grammar {
 		<[\x09\x20..\x10FFFF]>
 	}
 
-	token block {
+	token block(Int $minimum-indent) {
 		<properties>?
 		<.newline>
 		:my $sp;
-		<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
+		<?before <.indent> $<sp>=[' ' ** { $minimum-indent..* } ] { $sp = $<sp> }>
 		:temp $*yaml-indent ~= $sp;
 		<.indent>
 		[ <value=list> | <value=map> ]
@@ -200,9 +200,9 @@ grammar Grammar {
 		<map-entry>+ % [ <.newline> <.indent> ]
 	}
 	token map-entry {
-		  <key> <.space>* ':' <?break> <.block-ws> <element>
-		| '?' <.block-ws> <key=.element> <.newline> <.indent>
-		  <.space>* ':' <.space>+ <element>
+		  <key> <.space>* ':' <?break> <.block-ws> <element(0)>
+		| '?' <.block-ws> <key=.element(0)> <.newline> <.indent>
+		  <.space>* ':' <.space>+ <element(0)>
 	}
 
 	token list {
@@ -212,7 +212,7 @@ grammar Grammar {
 		'-' <?break>
 		[
 		  || <element=cuddly-list-entry>
-		  || <.block-ws> <element> <.comment>?
+		  || <.block-ws> <element(1)> <.comment>?
 		]
 	}
 	token cuddly-list-entry {
@@ -393,8 +393,8 @@ grammar Grammar {
 		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 	}
 
-	token element {
-		[  [ <value=block> | <value=block-string> ]
+	token element(Int $minimum-indent) {
+		[  [ <value=block($minimum-indent)> | <value=block-string> ]
 		|  <value=inline> <.comment>?
 		|| <value=plain> <.comment>?
 		]
