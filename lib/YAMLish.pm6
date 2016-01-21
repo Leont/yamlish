@@ -470,7 +470,7 @@ grammar Grammar {
 			make Any;
 		}
 		method map($/) {
-			make @<map-entry>».ast.hash.item;
+			make @<map-entry>».ast.hash;
 		}
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
@@ -479,7 +479,7 @@ grammar Grammar {
 			self!first($/);
 		}
 		method list($/) {
-			make [ @<list-entry>».ast ];
+			make @<list-entry>».ast.list;
 		}
 		method list-entry($/) {
 			make $<element>.ast;
@@ -528,10 +528,10 @@ grammar Grammar {
 		}
 
 		method inline-map($/) {
-			make $<pairlist>.ast.hash.item;
+			make $<pairlist>.ast.hash;
 		}
 		method pairlist($/) {
-			make [ @<pair>».ast ];
+			make @<pair>».ast.list;
 		}
 		method pair($/) {
 			make $<key>.ast => $<inline>.ast;
@@ -543,7 +543,7 @@ grammar Grammar {
 			make $<inline-list-inside>.ast
 		}
 		method inline-list-inside($/) {
-			make [ @<inline>».ast ];
+			make @<inline>».ast.list;
 		}
 		method inline($/) {
 			make self!handle_properties($<properties>, $<value>);
