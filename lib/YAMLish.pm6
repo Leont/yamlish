@@ -76,7 +76,11 @@ my %default-tags = flatten-tags(%yaml-tags);
 grammar Grammar {
 	token TOP {
 		<.document-prefix>?
-		<document=any-document>
+		[
+		| <document=directive-document>
+		| <document=explicit-document>
+		| <document=simple-document>
+		]
 		[
 		| <.document-suffix>+ <.document-prefix>* <document=any-document>?
 		| <.document-prefix>* <document=explicit-document>
@@ -144,6 +148,17 @@ grammar Grammar {
 		| <.begin-space> <inline>
 		| <.begin-space> <block-string('')>
 		| <.begin-space> <!before '---' | '...'> <plain>
+		]
+		<.line-end>
+	}
+	token simple-document {
+		<!before '---' | '...'>
+		[
+		| <map('')>
+		| <list('')>
+		| <inline>
+		| <block-string('')>
+		| <plain>
 		]
 		<.line-end>
 	}
@@ -454,6 +469,9 @@ grammar Grammar {
 			make $<document>.ast;
 		}
 		method bare-document($/) {
+			self!first($/);
+		}
+		method simple-document($/) {
 			self!first($/);
 		}
 		method empty-document($/) {
