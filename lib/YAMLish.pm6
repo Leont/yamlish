@@ -160,8 +160,7 @@ grammar Grammar {
 		[ <!after <.alnum>> <.comment> <.line-break> $*yaml-indent <.space>* ]*
 	}
 	token newline {
-		<.space>* <.comment>? <.line-break>
-		[ [ <.space>* <.comment> | <.empty-line> ] <.line-break> ]*
+		[ <.space>* <.comment>? <.line-break> ]+
 	}
 	token space {
 		<[\ \t]>
