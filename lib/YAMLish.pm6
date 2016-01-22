@@ -139,10 +139,10 @@ grammar Grammar {
 	}
 	token bare-document {
 		[
-		| <.newline> <!before '---' | '...'> <map>
-		| <.newline> <list>
+		| <.newline> <!before '---' | '...'> <map('')>
+		| <.newline> <list('')>
 		| <.begin-space> <inline>
-		| <.begin-space> <block-string>
+		| <.begin-space> <block-string('')>
 		| <.begin-space> <!before '---' | '...'> <plain>
 		]
 		<.line-end>
@@ -153,11 +153,11 @@ grammar Grammar {
 
 	token ws {
 		<.space>*
-		[ [ <!after <.alnum>> <.comment> ]? <.line-break> <.empty-line> ]*
+		[ [ <!after <.alnum>> <.comment> ]? <.line-break> <.space>* ]*
 	}
-	token block-ws {
+	token block-ws(Str $indent) {
 		<.space>*
-		[ <!after <.alnum>> <.comment> <.line-break> $*yaml-indent <.space>* ]*
+		[ <!after <.alnum>> <.comment> <.line-break> $indent <.space>* ]*
 	}
 	token newline {
 		[ <.space>* <.comment>? <.line-break> ]+
@@ -174,51 +174,43 @@ grammar Grammar {
 	token break {
 		<.line-break> | <.space>
 	}
-	token empty-line {
-		<.indent> <.space>*
-	}
-	token indent {
-		$*yaml-indent
-	}
 
 	token nb {
 		<[\x09\x20..\x10FFFF]>
 	}
 
-	token block(Int $minimum-indent) {
+	token block(Str $indent, Int $minimum-indent) {
 		<properties>?
 		<.newline>
-		:my $sp;
-		<?before <.indent> $<sp>=[' ' ** { $minimum-indent..* } ] { $sp = $<sp> }>
-		:temp $*yaml-indent ~= $sp;
-		<.indent>
-		[ <value=list> | <value=map> ]
+		:my $new-indent;
+		<?before $indent $<sp>=[' ' ** { $minimum-indent..* } ] { $new-indent = $indent ~ $<sp> }>
+		$new-indent
+		[ <value=list($new-indent)> | <value=map($new-indent)> ]
 	}
 
-	token map {
-		<map-entry>+ % [ <.newline> <.indent> ]
+	token map(Str $indent) {
+		<map-entry($indent)>+ % [ <.newline> $indent ]
 	}
-	token map-entry {
-		  <key> <.space>* ':' <?break> <.block-ws> <element(0)>
-		| '?' <.block-ws> <key=.element(0)> <.newline> <.indent>
-		  <.space>* ':' <.space>+ <element(0)>
+	token map-entry(Str $indent) {
+		  <key> <.space>* ':' <?break> <.block-ws($indent)> <element($indent, 0)>
+		| '?' <.block-ws($indent)> <key=.element($indent, 0)> <.newline> $indent
+		  <.space>* ':' <.space>+ <element($indent, 0)>
 	}
 
-	token list {
-		<list-entry>+ % [ <.newline> <.indent> ]
+	token list(Str $indent) {
+		<list-entry($indent)>+ % [ <.newline> $indent ]
 	}
-	token list-entry {
+	token list-entry(Str $indent) {
 		'-' <?break>
 		[
-		  || <element=cuddly-list-entry>
-		  || <.block-ws> <element(1)> <.comment>?
+		  || <element=cuddly-list-entry($indent)>
+		  || <.block-ws($indent)> <element($indent, 1)> <.comment>?
 		]
 	}
-	token cuddly-list-entry {
-		:my $sp;
-		$<sp>=' '+ { $sp = $<sp> }
-		:temp $*yaml-indent ~= ' ' ~ $sp;
-		[ <element=map> | <element=list> ]
+	token cuddly-list-entry(Str $indent) {
+		:my $new-indent;
+		$<sp>=' '+ { $new-indent = $indent ~ ' ' ~ $<sp> }
+		[ <element=map($new-indent)> | <element=list($new-indent)> ]
 	}
 
 	token key {
@@ -264,14 +256,13 @@ grammar Grammar {
 	token foldable-whitespace {
 		<.space>* <.line-break> <.space>*
 	}
-	token block-string {
+	token block-string(Str $indent) {
 		<properties>?
 		$<kind>=<[\|\>]> <.space>*
 		<.comment>? <.line-break>
-		:my $sp;
-		<?before <.indent> $<sp>=' '+ { $sp = $<sp> }>
-		:temp $*yaml-indent ~= $sp;
-		[ <.indent> $<content>=[ \N* ] ]+ % <.line-break>
+		:my $new-indent;
+		<?before $indent $<sp>=' '+ { $new-indent = $indent ~ $<sp> }>
+		[ $new-indent $<content>=[ \N* ] ]+ % <.line-break>
 	}
 
 	token yes {
@@ -392,8 +383,8 @@ grammar Grammar {
 		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 	}
 
-	token element(Int $minimum-indent) {
-		[  [ <value=block($minimum-indent)> | <value=block-string> ]
+	token element(Str $indent, Int $minimum-indent) {
+		[  [ <value=block($indent, $minimum-indent)> | <value=block-string($indent)> ]
 		|  <value=inline> <.comment>?
 		|| <value=plain> <.comment>?
 		]
@@ -678,7 +669,6 @@ grammar Grammar {
 	}
 
 	method parse($string, :%tags, *%args) {
-		my $*yaml-indent = '';
 		my %*yaml-anchors;
 		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 		my $*yaml-version = 1.2;
@@ -686,7 +676,6 @@ grammar Grammar {
 		nextwith($string, :actions(Actions), |%args);
 	}
 	method subparse($string, :%tags, *%args) {
-		my $*yaml-indent = '';
 		my %*yaml-anchors;
 		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 		my $*yaml-version = 1.2;
