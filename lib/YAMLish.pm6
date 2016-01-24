@@ -1,79 +1,9 @@
 use v6;
 
 unit module YAMLish;
-my $yaml-namespace = 'tag:yaml.org,2002:';
-my %yaml-tags = (
-	$yaml-namespace => {
-		str => sub ($ast, $value) {
-			given $value {
-				when Str {
-					return $value;
-				}
-				when Bool|Numeric|Date|DateTime|*.defined.not {
-					return ~$ast;
-				}
-				when Positional|Associative {
-					die "Couldn't convert collection into string";
-				}
-				default {
-					die "Couldn't resolve { $value.WHAT } to string";
-				}
-			}
-		},
-		int => sub ($, $value) {
-			given $value {
-				when Numeric|Str|Bool {
-					return $value.Int;
-				}
-				default {
-					die "Couldn't resolve a { $value.WHAT } to integer";
-				}
-			}
-		},
-		float => sub ($, $value) {
-			given $value {
-				when Rat|Num {
-					return $value;
-				}
-				when Int|Str {
-					return $value.Rat;
-				}
-				default {
-					die "Couldn't resolve a { $value.WHAT } to float";
-				}
-			}
-		},
-		null => sub ($, $value) {
-			return Any;
-		},
-		binary => sub ($, $value) {
-			require MIME::Base64;
-			return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
-			die "Binary has to be a string";
-		},
-		seq => sub ($, $value) {
-			return $value if $value ~~ Iterable;
-			die "Could not convert { $value.WHAT } to a sequence";
-		},
-		map => sub ($, $value) {
-			return $value if $value ~~ Associative;
-			die "Could not convert { $value.WHAT } to am Associative";
-		},
-		set => sub ($ast, $value) {
-			return $value.keys.set if $value ~~ Associative;
-			die "Could not convert { $value.WHAT } to a set";
-		},
-		omap => sub ($ast, $value) {
-			die "Ordered maps not implemented yet"
-		},
-	},
-);
-my sub flatten-tags(%tags) {
-	return %tags.kv.map({ |$^value.kv.map($^namespace ~ * => *) } );
-}
-my %default-tags = flatten-tags(%yaml-tags);
 
 grammar Grammar {
+	my $yaml-namespace = 'tag:yaml.org,2002:';
 	token TOP {
 		<.document-prefix>?
 		[
@@ -686,6 +616,76 @@ grammar Grammar {
 		}
 	}
 
+	my %yaml-tags = (
+		$yaml-namespace => {
+			str => sub ($ast, $value) {
+				given $value {
+					when Str {
+						return $value;
+					}
+					when Bool|Numeric|Date|DateTime|*.defined.not {
+						return ~$ast;
+					}
+					when Positional|Associative {
+						die "Couldn't convert collection into string";
+					}
+					default {
+						die "Couldn't resolve { $value.WHAT } to string";
+					}
+				}
+			},
+			int => sub ($, $value) {
+				given $value {
+					when Numeric|Str|Bool {
+						return $value.Int;
+					}
+					default {
+						die "Couldn't resolve a { $value.WHAT } to integer";
+					}
+				}
+			},
+			float => sub ($, $value) {
+				given $value {
+					when Rat|Num {
+						return $value;
+					}
+					when Int|Str {
+						return $value.Rat;
+					}
+					default {
+						die "Couldn't resolve a { $value.WHAT } to float";
+					}
+				}
+			},
+			null => sub ($, $value) {
+				return Any;
+			},
+			binary => sub ($, $value) {
+				require MIME::Base64;
+				return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
+				die "Binary has to be a string";
+			},
+			seq => sub ($, $value) {
+				return $value if $value ~~ Iterable;
+				die "Could not convert { $value.WHAT } to a sequence";
+			},
+			map => sub ($, $value) {
+				return $value if $value ~~ Associative;
+				die "Could not convert { $value.WHAT } to am Associative";
+			},
+			set => sub ($ast, $value) {
+				return $value.keys.set if $value ~~ Associative;
+				die "Could not convert { $value.WHAT } to a set";
+			},
+			omap => sub ($ast, $value) {
+				die "Ordered maps not implemented yet"
+			},
+		},
+	);
+	my sub flatten-tags(%tags) {
+		return %tags.kv.map({ |$^value.kv.map($^namespace ~ * => *) } );
+	}
+	my %default-tags = flatten-tags(%yaml-tags);
 	method parse($string, :%tags, *%args) {
 		my %*yaml-anchors;
 		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
