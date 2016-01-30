@@ -223,7 +223,7 @@ grammar Grammar {
 		'{' <.ws> <pairlist> <.ws> '}'
 	}
 	rule pairlist {
-		<pair>* % \,
+		<pair>* %% \,
 	}
 	rule pair {
 		<key> ':' [ <inline> || <inline=inline-plain> ]
@@ -233,7 +233,7 @@ grammar Grammar {
 		'[' <.ws> <inline-list-inside> <.ws> ']'
 	}
 	rule inline-list-inside {
-		[ <inline> || <inline=inline-plain> ]* % \,
+		[ <inline> || <inline=inline-plain> ]* %% \,
 	}
 
 	token identifier-char {
