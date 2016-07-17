@@ -732,6 +732,7 @@ multi to-yaml(Positional:D $d, Str $indent) {
 	return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ') }).join("\n");
 }
 multi to-yaml(Associative:D $d, Str $indent) {
+	return ' {}' unless $d.elems;
 	return "\n" ~ $d.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
 }
 
