@@ -243,9 +243,7 @@ grammar Grammar {
 		<identifier-char>+ <!before <identifier-char> >
 	}
 
-	token inline {
-		<properties>?
-
+	token inline-atom {
 		[
 		| <value=int>
 		| <value=hex>
@@ -257,13 +255,21 @@ grammar Grammar {
 		| <value=yes>
 		| <value=no>
 		| <value=null>
+		| <value=alias>
+		| <value=datetime>
+		| <value=date>
+		]
+	}
+
+	token inline {
+		<properties>?
+
+		[
+		| <value=inline-atom>
 		| <value=inline-map>
 		| <value=inline-list>
 		| <value=single-quoted>
 		| <value=double-quoted>
-		| <value=alias>
-		| <value=datetime>
-		| <value=date>
 		]
 	}
 
@@ -482,6 +488,9 @@ grammar Grammar {
 		}
 		method inline-list-inside($/) {
 			make @<inline>».ast.list;
+		}
+		method inline-atom($/) {
+			make $<value>.ast;
 		}
 		method inline($/) {
 			make self!handle_properties($<properties>, $<value>);
@@ -715,7 +724,7 @@ proto to-yaml($;$ = Str) {*}
 
 multi to-yaml(Real:D $d; $ = Str) { ~$d }
 multi to-yaml(Bool:D $d; $ = Str) { $d ?? 'true' !! 'false'; }
-multi to-yaml(Str:D  $d where /^ <!Grammar::boolean> <[\w.-]>+ $/; $ = Str) {
+multi to-yaml(Str:D  $d where /^ <!Grammar::inline-atom> <[\w.-]>+ $/; $ = Str) {
 	return $d;
 }
 multi to-yaml(Str:D  $d; $) {
@@ -728,9 +737,11 @@ multi to-yaml(Str:D  $d; $) {
 	~ '"'
 }
 multi to-yaml(Positional:D $d, Str $indent) {
+	return ' []' unless $d.elems;
 	return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ') }).join("\n");
 }
 multi to-yaml(Associative:D $d, Str $indent) {
+	return ' {}' unless $d.elems;
 	return "\n" ~ $d.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
 }
 
