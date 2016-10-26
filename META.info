@@ -1,4 +1,5 @@
 {
+    "perl" : "6.*",
     "name" : "YAMLish",
     "version" : "0.0.1",
     "description" : "An implementation of a useful subset of YAML",
