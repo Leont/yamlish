@@ -2,8 +2,97 @@ use v6;
 
 unit module YAMLish;
 
+#use Data::Dump::Tree;
+#use Data::Dump::Tree::ExtraRoles;
+#use Data::Dump::Tree::DescribeBaseObjects;
+
+#use Grammar::Tracer;
+
+#sub dump-match($_) {
+	#my $d = Data::Dump::Tree.new(
+		#title => "match object",
+		#does => ( DDTR::MatchDetails, DDTR::PerlString, DDTR::UnicodeGlyphs ));
+	#$d.match_string_limit = 40;
+	#$d.dump($_)
+#}
+
 grammar Grammar {
 	my $yaml-namespace = 'tag:yaml.org,2002:';
+
+	method reg-indent($/, $indent) {
+		if $/.CURSOR.pos > $*indent-pos {
+			$*indent-pos = $/.CURSOR.pos;
+			@*indents = $indent;
+		} else {
+			@*indents.push: $indent;
+		}
+		return $/.CURSOR;
+	}
+
+	method indent-panic($/ is copy, $indent, $what? is copy) {
+		my ($line-num, $column) := self.line-column($/);
+		my $c = $/.CURSOR;
+
+		# Check if the position the indents were registered for only have
+		# empty lines and spaces up to the cursor's "from".
+
+		my $between = $/.orig.substr($*indent-pos, $c.from - $*indent-pos);
+
+		$/ = Nil;
+
+		my @described;
+
+		if $between ~~ /^ [\n|\s]* $/ {
+			for @*indents {
+				when "" {
+					@described.push: "no indentation";
+				}
+				when /^ " "+ $/ {
+					@described.push: "$_.chars() spaces";
+				}
+				default {
+					@described.push: $_.perl;
+				}
+			}
+		}
+
+		my $description;
+
+		if @described == 2 {
+			$description = @described[0] ~ " or " ~ @described[1];
+		} elsif @described > 2 {
+			$description = @described.head(*-1).join(", ") ~ ", or " ~ @described.tail;
+		} else {
+			$description = ~@described
+		}
+
+		with $what {
+			$what = " in $what";
+		} else {
+			$what = ""
+		}
+
+		if @described {
+			die "unexpected indent$what at {$line-num}:{$column}. Perhaps you wanted $description?";
+		} else {
+			die "unexpected indent$what at {$line-num}:{$column}";
+		}
+	}
+
+	method line-column($/) {
+		my $c = $/.CURSOR;
+		my @lines-so-far = $/.orig.substr(0, $c.from).lines;
+		my $line-num = +@lines-so-far;
+		my $column   = @lines-so-far.tail.chars;
+		return ($line-num, $column);
+	}
+
+	method panic($/, $what) {
+		my ($line-num, $column) := self.line-column($/);
+
+		die "$what at {$line-num}:{$column}";
+	}
+
 	token TOP {
 		<.document-prefix>?
 		[
@@ -135,6 +224,8 @@ grammar Grammar {
 
 	token map(Str $indent) {
 		<map-entry($indent)>+ % [ <.newline> $indent ]
+		[ <.newline> {} <.reg-indent($/, $indent)> $indent \s+ <wrongkey=key> <.space>* ':'
+		{} <.indent-panic: $<wrongkey>, $indent, "map"> ]?
 	}
 	token map-entry(Str $indent) {
 		  <key> <.space>* ':' <?break> <.block-ws($indent)> <element($indent, 0)>
@@ -144,6 +235,8 @@ grammar Grammar {
 
 	token list(Str $indent) {
 		<list-entry($indent)>+ % [ <.newline> $indent ]
+		[ <.newline> {} <.reg-indent($/, $indent)> $indent \s+ $<wrongdash>='-' <?break>
+		{} <.indent-panic: $<wrongdash>, $indent, "list"> ]?
 	}
 	token list-entry(Str $indent) {
 		'-' <?break>
@@ -700,6 +793,8 @@ grammar Grammar {
 		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 		my $*yaml-version = 1.2;
 		my %*yaml-prefix;
+		my @*indents;
+		my $*indent-pos = -1;
 		nextwith($string, :actions(Actions), |%args);
 	}
 	method subparse($string, :%tags, *%args) {
@@ -707,6 +802,8 @@ grammar Grammar {
 		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
 		my $*yaml-version = 1.2;
 		my %*yaml-prefix;
+		my @*indents;
+		my $*indent-pos = -1;
 		nextwith($string, :actions(Actions), |%args);
 	}
 }
