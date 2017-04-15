@@ -134,7 +134,7 @@ grammar Grammar {
 	}
 
 	token map(Str $indent) {
-		<map-entry($indent)>+ % [ <.newline> $indent ]
+		<map-entry($indent)>+ %% [ <.newline> $indent ]
 	}
 	token map-entry(Str $indent) {
 		  <key> <.space>* ':' <?break> <.block-ws($indent)> <element($indent, 0)>
@@ -143,7 +143,7 @@ grammar Grammar {
 	}
 
 	token list(Str $indent) {
-		<list-entry($indent)>+ % [ <.newline> $indent ]
+		<list-entry($indent)>+ %% [ <.newline> $indent ]
 	}
 	token list-entry(Str $indent) {
 		'-' <?break>
