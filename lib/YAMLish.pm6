@@ -74,7 +74,7 @@ grammar Grammar {
 	token bare-document {
 		[
 		| <.newline> <!before '---' | '...'> <map('')>
-		| <.newline> <list('')>
+		| <.newline> <yamllist('')>
 		| <.begin-space> <inline>
 		| <.begin-space> <block-string('')>
 		| <.begin-space> <!before '---' | '...'> <plain>
@@ -85,7 +85,7 @@ grammar Grammar {
 		<!before '---' | '...'>
 		[
 		| <map('')>
-		| <list('')>
+		| <yamllist('')>
 		| <inline>
 		| <block-string('')>
 		| <plain>
@@ -130,7 +130,7 @@ grammar Grammar {
 		:my $new-indent;
 		<?before $indent $<sp>=[' ' ** { $minimum-indent..* } ] { $new-indent = $indent ~ $<sp> }>
 		$new-indent
-		[ <value=list($new-indent)> | <value=map($new-indent)> ]
+		[ <value=yamllist($new-indent)> | <value=map($new-indent)> ]
 	}
 
 	token map(Str $indent) {
@@ -142,7 +142,7 @@ grammar Grammar {
 		  <.space>* ':' <.space>+ <element($indent, 0)>
 	}
 
-	token list(Str $indent) {
+	token yamllist(Str $indent) {
 		<list-entry($indent)>+ % [ <.newline> $indent ]
 	}
 	token list-entry(Str $indent) {
@@ -155,7 +155,7 @@ grammar Grammar {
 	token cuddly-list-entry(Str $indent) {
 		:my $new-indent;
 		$<sp>=' '+ { $new-indent = $indent ~ ' ' ~ $<sp> }
-		[ <element=map($new-indent)> | <element=list($new-indent)> ]
+		[ <element=map($new-indent)> | <element=yamllist($new-indent)> ]
 	}
 
 	token key {
@@ -422,7 +422,7 @@ grammar Grammar {
 		method key($/) {
 			self!first($/);
 		}
-		method list($/) {
+		method yamllist($/) {
 			make @<list-entry>».ast.list;
 		}
 		method list-entry($/) {
