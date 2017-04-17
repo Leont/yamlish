@@ -1,7 +1,7 @@
 {
     "perl" : "6.*",
     "name" : "YAMLish",
-    "version" : "0.0.1",
+    "version" : "0.0.2",
     "description" : "An implementation of a useful subset of YAML",
     "provides" : {
         "YAMLish"       : "lib/YAMLish.pm6"
