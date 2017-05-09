@@ -11,11 +11,11 @@ grammar Grammar {
 	}
 
 	method line-column($/) {
-			my $c = $/;
-			my @lines-so-far = $/.orig.substr(0, $c.from).lines;
-			my $line-num = +@lines-so-far;
-			my $column   = @lines-so-far.tail.chars;
-			return ($line-num, $column);
+		my $c = $/;
+		my @lines-so-far = $/.orig.substr(0, $c.from).lines;
+		my $line-num = +@lines-so-far;
+		my $column   = @lines-so-far.tail.chars;
+		return ($line-num, $column);
 	}
 
 	token TOP {
