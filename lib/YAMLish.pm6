@@ -4,6 +4,20 @@ unit module YAMLish;
 
 grammar Grammar {
 	my $yaml-namespace = 'tag:yaml.org,2002:';
+
+	method indent-panic($/, $indent, $what) {
+		my ($line-num, $column) := self.line-column($/);
+		die "Problem with indentatiton in $what at {$line-num}:{$column}."
+	}
+
+	method line-column($/) {
+			my $c = $/;
+			my @lines-so-far = $/.orig.substr(0, $c.from).lines;
+			my $line-num = +@lines-so-far;
+			my $column   = @lines-so-far.tail.chars;
+			return ($line-num, $column);
+	}
+
 	token TOP {
 		<.document-prefix>?
 		[
@@ -135,6 +149,7 @@ grammar Grammar {
 
 	token map(Str $indent) {
 		<map-entry($indent)>+ % [ <.newline> $indent ]
+		[ <.newline> $indent \s+ <wrongkey=key> <.space>* ':' {} <.indent-panic: $<wrongkey>, $indent, "map"> ]?
 	}
 	token map-entry(Str $indent) {
 		  <key> <.space>* ':' <?break> <.block-ws($indent)> <element($indent, 0)>
@@ -144,6 +159,7 @@ grammar Grammar {
 
 	token yamllist(Str $indent) {
 		<list-entry($indent)>+ % [ <.newline> $indent ]
+		[ <.newline> $indent \s+ $<wrongdash>='-' <?break> {} <.indent-panic: $<wrongdash>, $indent, "list"> ]?
 	}
 	token list-entry(Str $indent) {
 		'-' <?break>
@@ -713,10 +729,16 @@ grammar Grammar {
 
 our sub load-yaml(Str $input) is export {
 	my $match = Grammar.parse($input);
+	CATCH {
+		fail "Couldn't parse YAML: $_";
+	}
 	return $match ?? $match.ast[0] !! fail "Couldn't parse YAML";
 }
 our sub load-yamls(Str $input) is export {
 	my $match = Grammar.parse($input);
+	CATCH {
+		fail "Couldn't parse YAML: $_";
+	}
 	return $match ?? $match.ast !! fail "Couldn't parse YAML";
 }
 
