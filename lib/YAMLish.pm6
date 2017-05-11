@@ -104,7 +104,7 @@ grammar Grammar {
 		| <block-string('')>
 		| <plain>
 		]
-		<.line-end>
+		<.newline>+
 	}
 	token begin-space {
 		<?before <break>> <.ws>
