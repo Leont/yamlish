@@ -93,7 +93,7 @@ grammar Grammar {
 		| <.begin-space> <block-string('')>
 		| <.begin-space> <!before '---' | '...'> <plain>
 		]
-		<.newline>+
+		<.newline>
 	}
 	token simple-document {
 		<!before '---' | '...'>
@@ -104,7 +104,7 @@ grammar Grammar {
 		| <block-string('')>
 		| <plain>
 		]
-		<.newline>+
+		<.newline>?
 	}
 	token begin-space {
 		<?before <break>> <.ws>
