@@ -6,6 +6,8 @@ use YAMLish;
 
 my $text1 = q:heredoc/END/;
 ---
+# foo
+# bar
 - &first 1
 - 
   - 1
@@ -22,6 +24,8 @@ my $text1 = q:heredoc/END/;
   ]
 - - 1
   - 2
+# foo
+# bar
 ...
 END
 
