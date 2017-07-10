@@ -25,8 +25,8 @@ my $text1 = q:heredoc/END/;
 - - 1
   - 2
 # foo
-# bar
 ...
+# bar
 END
 
 my $match = load-yaml($text1);
