@@ -223,7 +223,7 @@ grammar Grammar {
 		<.comment>? <.line-break>
 		:my $new-indent;
 		<?before $indent $<sp>=' '+ { $new-indent = $indent ~ $<sp> }>
-		[ $new-indent $<content>=[ \N* ] ]+ % <.line-break>
+		[ $new-indent $<content>=[ \N* ] | $indent <.before <.line-break> > ]+ % <.line-break>
 	}
 
 	token yes {
