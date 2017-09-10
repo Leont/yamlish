@@ -4,7 +4,7 @@ unit module YAMLish;
 
 role Element {
 	has Str $.tag;
-	method concretize() { ... }
+	method concretize($) { ... }
 }
 
 role Single does Element {
@@ -12,114 +12,39 @@ role Single does Element {
 }
 
 class String does Single {
-	method concretize() {
+	method concretize($schema) {
 		return $!value;
-	}
-}
-
-grammar Schema::Core {
-	proto token element { * }
-
-	token element:<int> {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		<|w>
-		{ make $/.Str.Int }
-	}
-	token element:<hex> {
-		:i
-		'-'?
-		'0x'
-		$<value>=[ <[0..9A..F]>+ ]
-		<|w>
-		{ make :16(~$<value>) }
-	}
-	token element:<oct> {
-		:i
-		'-'?
-		'0o'
-		$<value>=[ <[0..7]>+ ]
-		<|w>
-		{ make :8(~$<value>) }
-	}
-	token element:<rat> {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		\. <[0..9]>+
-		<|w>
-		{ make $/.Rat }
-	}
-	token element:<float> {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		[ \. <[0..9]>+ ]?
-		[ <[eE]> [\+|\-]? <[0..9]>+ ]?
-		<|w>
-		{ make +$/.Str }
-	}
-	token element:<inf> {
-		:i
-		$<sign>='-'?
-		'.inf'
-		{ make $<sign> ?? -Inf !! Inf }
-	}
-	token element:<nan> {
-		:i '.nan'
-		{ make NaN }
-	}
-	token element:<null> {
-		'~'
-		{ make Nil }
-	}
-	token element:<datetime> {
-		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
-		[ ' ' | 'T' ]
-		$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
-		$<offset>=[ <[+-]> <[0..9]>**1..2]
-		{ make DateTime.new(|$/.hash».Int) }
-	}
-	token element:<date> {
-		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
-		{ make Date.new(|$/.hash».Int) }
-	}
-	token element:<yes> {
-		[ :i y | yes | true | on ] <|w>
-		{ make True }
-	}
-	token element:<no> {
-		[ :i n | no | false | off ] <|w>
-		{ make False }
 	}
 }
 
 class Plain does Single {
-	method concretize() {
-		if Schema::Core.new.parse($!value, :rule('element')) -> $match {
-			return $match.ast;
-		}
-		return $!value;
+	method concretize($schema) {
+		my $match = $schema.new.parse($!value);
+		return $match ?? $match.ast !! die "Invalid value $!value";
 	}
 }
 
-role Composite does Element { }
-
-class Mapping does Composite {
+class Mapping does Element {
 	has Pair @.pairs;
-	method concretize() {
-		return @.pairs.map({ .key.concretize => .value.concretize}).hash;
+	method concretize($schema) {
+		return @.pairs.map({ .key.concretize($schema) => .value.concretize($schema)}).hash;
 	}
 }
 
-class Sequence does Composite {
-	has Any @.elems;
-	method concretize() {
-		return @.elems.map(*.concretize).list;
+class Sequence does Element {
+	has Element @.elems;
+	method concretize($schema) {
+		return @.elems.map(*.concretize($schema)).list;
 	}
 }
 
 class Document {
+	has Any $.version;
 	has Str %.tags;
-	has Element $.root;
+	has $.root;
+	method concretize($schema) {
+		return $!root.concretize($schema);
+	}
 }
 
 my $yaml-namespace = 'tag:yaml.org,2002:';
@@ -437,7 +362,6 @@ grammar Grammar {
 		'!'
 	}
 
-
 	class Actions {
 		method TOP($/) {
 			make ( @<document>».ast );
@@ -449,21 +373,25 @@ grammar Grammar {
 			self!first($/);
 		}
 		method directive-document($/) {
-			make $<explicit-document>.ast;
+			my $version = $<directives><version>;
+			my %tags = $<directives><tags>.kv;
+			my $root = $<explicit-document>.ast.root;
+			make Document.new(:$root, :$version, :%tags);
 		}
 		method directives($/) {
 			my %tags = @<tag-directive>».ast;
-			my $version = $<version-directive>.ast // 1.2;
+			my $version = 1.2;
 			make { :%tags, :$version };
 		}
 		method tag-directive($/) {
 			make ~$<tag-handle> => ~$<tag-prefix>
 		}
 		method explicit-document($/) {
-			make $<document>.ast;
+			make Document.new(:root($<document>.ast));
 		}
 		method bare-document($/) {
-			self!first($/);
+			my $root = $/.values.[0].ast;
+			make Document.new(:$root);
 		}
 		method simple-document($/) {
 			self!first($/);
@@ -732,22 +660,134 @@ grammar Grammar {
 	}
 }
 
-my sub compose-yaml($ast, $tags) {
+grammar Schema::JSON {
+	regex TOP {
+		[ <element> <.ws> || <plain> ]
+		{ make $/.values[0].ast; }
+	}
+
+	proto token element { * }
+	token element:<null> {
+		'null'
+		{ make Nil }
+	}
+	token element:<int> {
+		<[+-]>?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		<|w>
+		{ make $/.Str.Int }
+	}
+	token element:<rat> {
+		<[+-]>?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		\. <[0..9]>+
+		<|w>
+		{ make $/.Rat }
+	}
+	token element:<float> {
+		<[+-]>?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		[ \. <[0..9]>+ ]?
+		[ <[eE]> [\+|\-]? <[0..9]>+ ]?
+		<|w>
+		{ make +$/.Str }
+	}
+	token element:<inf> {
+		$<sign=[+-]>?
+		'.inf'
+		{ make $<sign> eq '-' ?? -Inf !! Inf }
+	}
+	token element:<nan> {
+		'.nan'
+		{ make NaN }
+	}
+	token element:<yes> {
+		true <|w>
+		{ make True }
+	}
+	token element:<no> {
+		false <|w>
+		{ make False }
+	}
+
+	token plain {
+		<?{ False }>
+	}
 }
 
-our sub load-yaml(Str $input) is export {
-	my $match = Grammar.parse($input);
-	CATCH {
-		fail "Couldn't parse YAML: $_";
+grammar Schema::Core is Schema::JSON {
+	token element:<hex> {
+		:i
+		'-'?
+		'0x'
+		$<value>=[ <[0..9A..F]>+ ]
+		<|w>
+		{ make :16(~$<value>) }
 	}
-	return $match ?? $match.ast[0].concretize !! fail "Couldn't parse YAML";
+	token element:<oct> {
+		:i
+		'-'?
+		'0o'
+		$<value>=[ <[0..7]>+ ]
+		<|w>
+		{ make :8(~$<value>) }
+	}
+	token element:<inf> {
+		:i
+		$<sign>='-'?
+		'.inf'
+		{ make $<sign> ?? -Inf !! Inf }
+	}
+	token element:<nan> {
+		:i '.nan'
+		{ make NaN }
+	}
+	token element:<null> {
+		[ :i 'null' | '~' ]
+		{ make Nil }
+	}
+	token element:<yes> {
+		[ :i y | yes | true | on ] <|w>
+		{ make True }
+	}
+	token element:<no> {
+		[ :i n | no | false | off ] <|w>
+		{ make False }
+	}
+
+	token plain {
+		^ $<value>=.* $
+		{ make ~$<value> }
+	}
 }
-our sub load-yamls(Str $input) is export {
+
+grammar Schema::Extra is Schema::Core {
+	token element:<datetime> {
+		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
+		[ ' ' | 'T' ]
+		$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
+		$<offset>=[ <[+-]> <[0..9]>**1..2]
+		{ make DateTime.new(|$/.hash».Int) }
+	}
+	token element:<date> {
+		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
+		{ make Date.new(|$/.hash».Int) }
+	}
+}
+
+our sub load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
 	}
-	return $match ?? $match.ast.map(*.concretize) !! fail "Couldn't parse YAML";
+	return $match ?? $match.ast[0].concretize($schema) !! fail "Couldn't parse YAML";
+}
+our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core) is export {
+	my $match = Grammar.parse($input);
+	CATCH {
+		fail "Couldn't parse YAML: $_";
+	}
+	return $match ?? $match.ast.map(*.concretize($schema)) !! fail "Couldn't parse YAML";
 }
 
 proto to-yaml($;$ = Str) {*}

@@ -135,6 +135,7 @@ my @SCHEDULE = (
 		out => { spog => ( 1, 2 ) },
 	},
 	{   name => 'Original YAML::Tiny test',
+		schema => YAMLish::Schema::Extra,
 		in   => [
 			'---',
 			'invoice: 34843',
@@ -484,7 +485,8 @@ for (@SCHEDULE) -> %test {
 
 	my $source = %test<in>.join("\n") ~ "\n";
 
-	my $got = load-yaml($source);
+	my %extra = (%test<schema>:exists) ?? (%test<schema>:kv) !! ();
+	my $got = load-yaml($source, |%extra);
 	my $want = %test<out>;
 
 	if (%test<error> :exists) {
