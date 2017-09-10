@@ -30,7 +30,7 @@ my $text1 = q:heredoc/END/;
 END
 
 my $match = load-yaml($text1);
-is-deeply($match, [1, [1, 16], {:baz("quz"), :foo("bar"), :baaz("buuz")}, { :baz(1) }, [ 1 ], [1, 2] ], "First test matches");
+is-deeply($match, (1, (1, 16), {:baz("quz"), :foo("bar"), :baaz("buuz")}, { :baz(1) }, (1, ), (1, 2) ), "First test matches");
 
 
 
@@ -55,7 +55,7 @@ END
 my $expected2 = {
 	message => "Board layout",
 	severity => "comment",
-	dump => [
+	dump => (
 		"      16G         05C        ",
 		"      G N C       C C G      ",
 		"        G           C  +     ",
@@ -65,7 +65,7 @@ my $expected2 = {
 		"      01G   17C   00C        ",
 		"      G A G G N R R N R      ",
 		"        G     R     G        ",
-	],
+	),
 	comment => "foo bar",
 }
 is-deeply(load-yaml($text2), $expected2, "Second test matches");
@@ -89,7 +89,7 @@ Stack:
 END
 my $expected3 = {
 	Fatal => "Unknown variable \"bar\"",
-	Stack => [ 
+	Stack => (
 		{
 			file => "TopClass.pl",
 			line => 23,
@@ -100,11 +100,11 @@ my $expected3 = {
 			line => 58,
 			code => "foo = bar",
 		},
-	],
+	),
 	User => "ed",
 }
 is-deeply(load-yaml($text3), $expected3, "Third test matches");
-is-deeply(load-yamls($text3), [ $expected3 ], "Third test matches in multi-doc mode too");
+is-deeply(load-yamls($text3), ( $expected3, ), "Third test matches in multi-doc mode too");
 
 my $text4 = q:heredoc/END/;
 %TAG !yaml! tag:yaml.org,2002:

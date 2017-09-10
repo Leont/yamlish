@@ -2,9 +2,129 @@ use v6;
 
 unit module YAMLish;
 
-grammar Grammar {
-	my $yaml-namespace = 'tag:yaml.org,2002:';
+role Element {
+	has Str $.tag;
+	method concretize() { ... }
+}
 
+role Single does Element {
+	has Str:D $.value is required;
+}
+
+class String does Single {
+	method concretize() {
+		return $!value;
+	}
+}
+
+grammar Schema::Core {
+	proto token element { * }
+
+	token element:<int> {
+		'-'?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		<|w>
+		{ make $/.Str.Int }
+	}
+	token element:<hex> {
+		:i
+		'-'?
+		'0x'
+		$<value>=[ <[0..9A..F]>+ ]
+		<|w>
+		{ make :16(~$<value>) }
+	}
+	token element:<oct> {
+		:i
+		'-'?
+		'0o'
+		$<value>=[ <[0..7]>+ ]
+		<|w>
+		{ make :8(~$<value>) }
+	}
+	token element:<rat> {
+		'-'?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		\. <[0..9]>+
+		<|w>
+		{ make $/.Rat }
+	}
+	token element:<float> {
+		'-'?
+		[ 0 | <[1..9]> <[0..9]>* ]
+		[ \. <[0..9]>+ ]?
+		[ <[eE]> [\+|\-]? <[0..9]>+ ]?
+		<|w>
+		{ make +$/.Str }
+	}
+	token element:<inf> {
+		:i
+		$<sign>='-'?
+		'.inf'
+		{ make $<sign> ?? -Inf !! Inf }
+	}
+	token element:<nan> {
+		:i '.nan'
+		{ make NaN }
+	}
+	token element:<null> {
+		'~'
+		{ make Nil }
+	}
+	token element:<datetime> {
+		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
+		[ ' ' | 'T' ]
+		$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
+		$<offset>=[ <[+-]> <[0..9]>**1..2]
+		{ make DateTime.new(|$/.hash».Int) }
+	}
+	token element:<date> {
+		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
+		{ make Date.new(|$/.hash».Int) }
+	}
+	token element:<yes> {
+		[ :i y | yes | true | on ] <|w>
+		{ make True }
+	}
+	token element:<no> {
+		[ :i n | no | false | off ] <|w>
+		{ make False }
+	}
+}
+
+class Plain does Single {
+	method concretize() {
+		if Schema::Core.new.parse($!value, :rule('element')) -> $match {
+			return $match.ast;
+		}
+		return $!value;
+	}
+}
+
+role Composite does Element { }
+
+class Mapping does Composite {
+	has Pair @.pairs;
+	method concretize() {
+		return @.pairs.map({ .key.concretize => .value.concretize}).hash;
+	}
+}
+
+class Sequence does Composite {
+	has Any @.elems;
+	method concretize() {
+		return @.elems.map(*.concretize).list;
+	}
+}
+
+class Document {
+	has Str %.tags;
+	has Element $.root;
+}
+
+my $yaml-namespace = 'tag:yaml.org,2002:';
+
+grammar Grammar {
 	method indent-panic($/, $indent, $what) {
 		my ($line-num, $column) := self.line-column($/);
 		die "Problem with indentatiton in $what at {$line-num}:{$column}."
@@ -185,7 +305,7 @@ grammar Grammar {
 	}
 	token plain {
 		<properties>?
-		<.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]*
+		$<value> = [ <.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]* ]
 	}
 	regex inline-plain {
 		$<value> = [
@@ -226,15 +346,6 @@ grammar Grammar {
 		[ $new-indent $<content>=[ \N* ] | $indent <.before <.line-break> > ]+ % <.line-break>
 	}
 
-	token yes {
-		[ :i y | yes | true | on ] <|w>
-	}
-	token no {
-		[ :i n | no | false | off ] <|w>
-	}
-	token boolean {
-		<yes> | <no>
-	}
 	token inline-map {
 		'{' <.ws> <pairlist> <.ws> '}'
 	}
@@ -259,29 +370,11 @@ grammar Grammar {
 		<identifier-char>+ <!before <identifier-char> >
 	}
 
-	token inline-atom {
-		[
-		| <value=int>
-		| <value=hex>
-		| <value=oct>
-		| <value=rat>
-		| <value=float>
-		| <value=inf>
-		| <value=nan>
-		| <value=yes>
-		| <value=no>
-		| <value=null>
-		| <value=alias>
-		| <value=datetime>
-		| <value=date>
-		]
-	}
-
 	token inline {
 		<properties>?
 
 		[
-		| <value=inline-atom>
+		| <value=alias>
 		| <value=inline-map>
 		| <value=inline-list>
 		| <value=single-quoted>
@@ -294,60 +387,8 @@ grammar Grammar {
 		| <tag> <.space>+ [ <anchor> <.space>+ ]?
 	}
 
-	token int {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		<|w>
-	}
-	token hex {
-		:i
-		'-'?
-		'0x'
-		$<value>=[ <[0..9A..F]>+ ]
-		<|w>
-	}
-	token oct {
-		:i
-		'-'?
-		'0o'
-		$<value>=[ <[0..7]>+ ]
-		<|w>
-	}
-	token rat {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		\. <[0..9]>+
-		<|w>
-	}
-	token float {
-		'-'?
-		[ 0 | <[1..9]> <[0..9]>* ]
-		[ \. <[0..9]>+ ]?
-		[ <[eE]> [\+|\-]? <[0..9]>+ ]?
-		<|w>
-	}
-	token inf {
-		:i
-		$<sign>='-'?
-		'.inf'
-	}
-	token nan {
-		:i '.nan'
-	}
-	token null {
-		'~'
-	}
 	token alias {
 		'*' <identifier>
-	}
-	token datetime {
-		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
-		[ ' ' | 'T' ]
-		$<hour>=<[0..9]>**2 '-' $<minute>=<[0..9]>**2 '-' $<seconds>=<[0..9]>**2
-		$<offset>=[ <[+-]> <[0..9]>**1..2]
-	}
-	token date {
-		$<year>=<[0..9]>**4 '-' $<month>=<[0..9]>**2 '-' $<day>=<[0..9]>**2
 	}
 
 	token element(Str $indent, Int $minimum-indent) {
@@ -396,6 +437,7 @@ grammar Grammar {
 		'!'
 	}
 
+
 	class Actions {
 		method TOP($/) {
 			make ( @<document>».ast );
@@ -427,10 +469,10 @@ grammar Grammar {
 			self!first($/);
 		}
 		method empty-document($/) {
-			make Any;
+			make Nil;
 		}
 		method map($/) {
-			make @<map-entry>».ast.hash;
+			make Mapping.new(pairs => @<map-entry>».ast);
 		}
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
@@ -439,7 +481,7 @@ grammar Grammar {
 			self!first($/);
 		}
 		method yamllist($/) {
-			make @<list-entry>».ast.list;
+			make Sequence.new(elems => @<list-entry>».ast.list);
 		}
 		method list-entry($/) {
 			make $<element>.ast;
@@ -450,14 +492,17 @@ grammar Grammar {
 		method space($/) {
 			make ~$/;
 		}
-		method single-quoted($_) {
-			.make: .<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
+		method single-quoted($/) {
+			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
+			make String.new(:$value);
 		}
 		method single-key($/) {
-			make $<value>.Str.subst("''", "'", :g);
+			my $value = $<value>.Str.subst("''", "'", :g);
+			make String.new(:$value);
 		}
 		method double-quoted($/) {
-			make @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+			make String.new(:$value);
 		}
 		method double-key($/) {
 			self.double-quoted($/);
@@ -466,10 +511,13 @@ grammar Grammar {
 			make ' ';
 		}
 		method plain($/) {
-			make self!handle_properties($<properties>, $/, ~$/);
+			my $value = ~$<value>;
+			my $ast = Plain.new(:$value);
+			make $ast;
+			self!save($<properties><anchor>.ast, $ast) if $<properties><anchor>;
 		}
 		method inline-plain($/) {
-			make ~$<value>
+			make Plain.new(value => ~$<value>);
 		}
 		method block-string($/) {
 			my $ret = $<content>.map(* ~ "\n").join('');
@@ -477,7 +525,8 @@ grammar Grammar {
 				my $/;
 				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
 			}
-			make self!handle_properties($<properties>, $/, $ret);
+			my $value = self!handle_properties($<properties>, $/, $ret);
+			make String.new(:$value);
 		}
 
 		method !save($name, $value) {
@@ -488,7 +537,7 @@ grammar Grammar {
 		}
 
 		method inline-map($/) {
-			make $<pairlist>.ast.hash;
+			make Mapping.new(pairs => $<pairlist>.ast);
 		}
 		method pairlist($/) {
 			make @<pair>».ast.list;
@@ -500,7 +549,7 @@ grammar Grammar {
 			make ~$/;
 		}
 		method inline-list($/) {
-			make $<inline-list-inside>.ast
+			make Sequence.new(elems => @($<inline-list-inside>.ast));
 		}
 		method inline-list-inside($/) {
 			make @<inline>».ast.list;
@@ -509,20 +558,12 @@ grammar Grammar {
 			make $<value>.ast;
 		}
 		method inline($/) {
+			# XXX
 			make self!handle_properties($<properties>, $<value>);
 		}
 
-		method !decode_value($properties, $ast, $value) {
-			if $properties<tag> -> $tag {
-				return $value if $tag.ast eq '!';
-				my &resolve = %*yaml-tags{$tag.ast} // return die "Unknown tag { $tag.ast }";
-				return resolve($ast, $value);
-			}
-			return $value;
-		}
-		method !handle_properties($properties, $ast, $original-value = $ast.ast) {
-			return $original-value if not $properties;
-			my $value = self!decode_value($properties, $ast, $original-value);
+		method !handle_properties($properties, $match, $value = $match.ast) {
+			return $value if not $properties;
 			self!save($properties<anchor>.ast, $value) if $properties<anchor>;
 			return $value;
 		}
@@ -564,44 +605,8 @@ grammar Grammar {
 			make '!';
 		}
 
-		method inf($/) {
-			make $<sign> ?? -Inf !! Inf;
-		}
-		method nan($/) {
-			make NaN;
-		}
-		method yes($/) {
-			make True;
-		}
-		method no($/) {
-			make False;
-		}
-		method int($/) {
-			make $/.Str.Int;
-		}
-		method hex($/) {
-			make :16(~$<value>);
-		}
-		method oct($/) {
-			make :8(~$<value>);
-		}
-		method rat($/) {
-			make $/.Rat;
-		}
-		method float($/) {
-			make +$/.Str;
-		}
-		method null($/) {
-			make Any;
-		}
 		method alias($/) {
 			make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast;
-		}
-		method datetime($/) {
-			make DateTime.new(|$/.hash».Int);
-		}
-		method date($/) {
-			make Date.new(|$/.hash».Int);
 		}
 
 		method block($/) {
@@ -683,7 +688,7 @@ grammar Grammar {
 				}
 			},
 			null => sub ($, $value) {
-				return Any;
+				return Nil;
 			},
 			binary => sub ($, $value) {
 				require MIME::Base64;
@@ -727,26 +732,29 @@ grammar Grammar {
 	}
 }
 
+my sub compose-yaml($ast, $tags) {
+}
+
 our sub load-yaml(Str $input) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
 	}
-	return $match ?? $match.ast[0] !! fail "Couldn't parse YAML";
+	return $match ?? $match.ast[0].concretize !! fail "Couldn't parse YAML";
 }
 our sub load-yamls(Str $input) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
 	}
-	return $match ?? $match.ast !! fail "Couldn't parse YAML";
+	return $match ?? $match.ast.map(*.concretize) !! fail "Couldn't parse YAML";
 }
 
 proto to-yaml($;$ = Str) {*}
 
 multi to-yaml(Real:D $d; $ = Str) { ~$d }
 multi to-yaml(Bool:D $d; $ = Str) { $d ?? 'true' !! 'false'; }
-multi to-yaml(Str:D  $d where /^ <!Grammar::inline-atom> <[\w.-]>+ $/; $ = Str) {
+multi to-yaml(Str:D  $d where /^ <!Schema::Core::element> <[\w.-]>+ $/; $ = Str) {
 	return $d;
 }
 multi to-yaml(Str:D  $d; $) {

@@ -68,7 +68,7 @@ my @SCHEDULE = (
 			'- 3',
 			'...',
 		],
-		out => [ 1, 2, 3 ],
+		out => ( 1, 2, 3 ),
 	},
 	{   name => 'Mixed array',
 		in   => [
@@ -78,7 +78,7 @@ my @SCHEDULE = (
 			'- "three\n"',
 			'...',
 		],
-		out => [ 1, 'two', "three\n" ],
+		out => ( 1, 'two', "three\n" ),
 	},
 	{   name => 'Hash in array',
 		in   => [
@@ -88,7 +88,7 @@ my @SCHEDULE = (
 			'- 3',
 			'...',
 		],
-		out => [ 1, { two => 2 }, 3 ],
+		out => ( 1, { two => 2 }, 3 ),
 	},
 	{   name => 'Hash in array 2',
 		in   => [
@@ -99,7 +99,7 @@ my @SCHEDULE = (
 			'- 4',
 			'...',
 		],
-		out => [ 1, { two => 2, three => 3 }, 4 ],
+		out => ( 1, { two => 2, three => 3 }, 4 ),
 	},
 	{   name => 'Nested array',
 		in   => [
@@ -113,7 +113,7 @@ my @SCHEDULE = (
 			'- five',
 			'...',
 		],
-		out => [ 'one', [ 'two', ['three'], 'four' ], 'five' ],
+		out => ( 'one', ( 'two', ('three', ), 'four' ), 'five' ),
 	},
 	{   name => 'Nested hash',
 		in   => [
@@ -132,7 +132,7 @@ my @SCHEDULE = (
 	},
 	{   name => 'Space after colon',
 		in   => [ '---', 'spog: ', ' - 1', ' - 2', '...' ],
-		out => { spog => [ 1, 2 ] },
+		out => { spog => ( 1, 2 ) },
 	},
 	{   name => 'Original YAML::Tiny test',
 		in   => [
@@ -180,7 +180,7 @@ my @SCHEDULE = (
 			'invoice' => 34843,
 			'date'	=> Date.new('2001-01-23'),
 			'tax'	 => 251.42,
-			'product' => [
+			'product' => (
 				{   'sku'		 => 'BL394D',
 					'quantity'	=> 4,
 					'price'	   => 450.00,
@@ -191,7 +191,7 @@ my @SCHEDULE = (
 					'price'	   => 2392.00,
 					'description' => 'Super Hoop'
 				}
-			],
+			),
 			'comments' => "Late afternoon is best. Backup contact is Nancy Billsmer @ 338-4338\n",
 			'total' => 4443.52
 		}
@@ -209,7 +209,7 @@ my @SCHEDULE = (
 		name  => 'only_comment',
 		error => rx{document\s+header\s+not\s+found}
 	},
-	{   out => Any,
+	{   out => Nil,
 		in  => [
 			'---',
 			'...'
@@ -217,7 +217,7 @@ my @SCHEDULE = (
 		name  => 'only_header',
 		error => rx:i{Premature\s+end},
 	},
-	{   out => Any,
+	{   out => Nil,
 		in  => [
 			'---',
 			'---',
@@ -226,7 +226,7 @@ my @SCHEDULE = (
 		name  => 'two_header',
 		error => rx:i{Unexpected\s+start},
 	},
-	{   out => Any,
+	{   out => Nil,
 		in  => [
 			'--- ~',
 			'...'
@@ -270,7 +270,7 @@ my @SCHEDULE = (
 		],
 		name  => 'two_scalar',
 	},
-	{   out => ['foo'],
+	{   out => ('foo', ),
 		in  => [
 			'---',
 			'- foo',
@@ -278,10 +278,10 @@ my @SCHEDULE = (
 		],
 		name => 'one_list1'
 	},
-	{   out => [
+	{   out => (
 			'foo',
 			'bar'
-		],
+		),
 		in => [
 			'---',
 			'- foo',
@@ -290,10 +290,10 @@ my @SCHEDULE = (
 		],
 		name => 'one_list2'
 	},
-	{   out => [
-			Any,
+	{   out => (
+			Nil,
 			'bar'
-		],
+		),
 		in => [
 			'---',
 			'- ~',
@@ -303,16 +303,16 @@ my @SCHEDULE = (
 		name => 'one_listundef'
 	},
 	{   out => { 'foo' => 'bar' },
-		in  => [
+		in  => (
 			'---',
 			'foo: bar',
 			'...'
-		],
+		),
 		name => 'one_hash1'
 	},
 	{   out => {
 			'foo'  => 'bar',
-			'this' => Any,
+			'this' => Nil,
 		},
 		in => [
 			'---',
@@ -323,11 +323,11 @@ my @SCHEDULE = (
 		name => 'one_hash2'
 	},
 	{   out => {
-			'foo' => [
+			'foo' => (
 				'bar',
-				Any,
+				Nil,
 				'baz'
-			]
+			)
 		},
 		in => [
 			'---',
@@ -341,7 +341,7 @@ my @SCHEDULE = (
 	},
 	{   out => {
 			'bar' => { 'foo' => 'bar' },
-			'foo' => Any 
+			'foo' => Nil
 		},
 		in => [
 			'---',
@@ -352,15 +352,15 @@ my @SCHEDULE = (
 		],
 		name => 'hash_in_hash'
 	},
-	{   out => [
-			{   'foo'  => Any,
+	{   out => (
+			{   'foo'  => Nil,
 				'this' => 'that'
 			},
-			'foo', Any,
+			'foo', Nil,
 			{   'foo'  => 'bar',
 				'this' => 'that'
 			}
-		],
+		),
 		in => [
 			'---',
 			'-',
@@ -375,7 +375,7 @@ my @SCHEDULE = (
 		],
 		name => 'hash_in_array'
 	},
-	{   out => ['foo'],
+	{   out => ('foo', ),
 		in  => [
 			'---',
 			'- \'foo\'',
@@ -383,7 +383,7 @@ my @SCHEDULE = (
 		],
 		name => 'single_quote1'
 	},
-	{   out => ['  '],
+	{   out => ('  ', ),
 		in  => [
 			'---',
 			'- \'  \'',
@@ -391,7 +391,7 @@ my @SCHEDULE = (
 		],
 		name => 'single_spaces'
 	},
-	{   out => [''],
+	{   out => ('', ),
 		in  => [
 			'---',
 			'- \'\'',
@@ -406,13 +406,13 @@ my @SCHEDULE = (
 		],
 		name => 'only_spaces'
 	},
-	{   out => [
-			Any,
+	{   out => (
+			Nil,
 			{   'foo'  => 'bar',
 				'this' => 'that'
 			},
 			'baz'
-		],
+		),
 		in => [
 			'---',
 			'- ~',
@@ -442,7 +442,7 @@ my @SCHEDULE = (
 			"- \xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff",
 			"..."
 		],
-		out => [
+		out => (
 			"\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\f\r\x0e\x0f",
 			"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\e\x1c\x1d\x1e\x1f",
 			" !\"#\$%&'()*+,-./",
@@ -457,7 +457,7 @@ my @SCHEDULE = (
 			"\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf",
 			"\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef",
 			"\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff",
-		],
+		),
 	},
 	{   name => 'Quoted hash keys',
 		in   => [
