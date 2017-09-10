@@ -1,12 +1,13 @@
 {
-    "perl" : "6.*",
     "name" : "YAMLish",
     "version" : "0.0.3",
-    "description" : "An implementation of a useful subset of YAML",
+    "author" : "Leon Timmermans",
+    "description" : "A pure perl6 implementation of YAML",
+    "perl" : "6.*",
+    "depends" : [ "MIME::Base64" ],
     "provides" : {
         "YAMLish"       : "lib/YAMLish.pm6"
     },
-    "author" : "Leon Timmermans",
-    "depends" : [ "MIME::Base64" ],
-    "source-url" : "git://github.com/leont/yamlish.git"
+    "source-url" : "git://github.com/leont/yamlish.git",
+    "tags" : [ "YAML", "format", "parser", "serialization" ]
 }
