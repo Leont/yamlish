@@ -2,52 +2,118 @@ use v6;
 
 unit module YAMLish;
 
-role Element {
-	has Str $.tag;
-	method concretize($) { ... }
-}
+my $yaml-namespace = 'tag:yaml.org,2002:';
 
-role Single does Element {
-	has Str:D $.value is required;
-}
-
-class String does Single {
-	method concretize($schema) {
-		return $!value;
+class Namespace {
+	has Str %.prefixes;
+	method lookup(Str $name) {
+		return %!prefixes{$name} // do given $name {
+			when '!' {
+				'!';
+			}
+			when '!!' {
+				$yaml-namespace;
+			}
+			default {
+				die "No such prefix $name known: " ~ %!prefixes.keys.join(", ");
+			}
+		}
 	}
 }
 
-class Plain does Single {
-	method concretize($schema) {
-		my $match = $schema.new.parse($!value);
-		return $match ?? $match.ast !! die "Invalid value $!value";
+role Tag {
+	method full-name(Namespace $namespace) { ... }
+}
+
+class ShortHandTag does Tag {
+	has Str:D $.namespace is required;
+	has Str:D $.local is required;
+	method full-name(Namespace $namespace) {
+		return $namespace.lookup($!namespace) ~ $!local;
+	}
+}
+
+class VerbatimTag does Tag {
+	has Str:D $.url is required;
+	method full-name(Namespace $namespace) {
+		return $!url;
+	}
+}
+
+class NonSpecificTag does Tag {
+	has Bool:D $.resolved is required;
+	method concretize() {
+	}
+	method full-name(Namespace $) {
+		return $!resolved ?? '!' !! '?';
+	}
+}
+
+role Element {
+	has Tag:D $.tag is required;
+	method concretize($, $, %) { ... }
+}
+
+my $resolved = NonSpecificTag.new(:resolved);
+my $unresolved = NonSpecificTag.new(:!resolved);
+
+class Single does Element {
+	has Str:D $.value is required;
+	method concretize($schema, $namespaces, %callbacks) {
+		my $full-name = $!tag.full-name($namespaces);
+		if $full-name eq '!' {
+			return $!value;
+		}
+		elsif $full-name eq '?' {
+			my $match = $schema.new.parse($!value);
+			return $match ?? $match.ast !! die "Invalid value $!value";
+		}
+		else {
+			return %callbacks{$full-name}($!value);
+		}
 	}
 }
 
 class Mapping does Element {
-	has Pair @.pairs;
-	method concretize($schema) {
-		return @.pairs.map({ .key.concretize($schema) => .value.concretize($schema)}).hash;
+	has Pair @.elems;
+	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
+	method concretize($schema, $namespaces, %callbacks) {
+		my @pairs := @.elems.map({ .key.concretize($schema, $namespaces, %callbacks) => .value.concretize($schema, $namespaces, %callbacks)}).list;
+		if $!tag ~~ NonSpecificTag {
+			return @pairs.hash;
+		}
+		else {
+			my $full-name = $!tag.full-name($namespaces);
+			return %callbacks{$full-name}(@pairs);
+		}
 	}
 }
 
 class Sequence does Element {
 	has Element @.elems;
-	method concretize($schema) {
-		return @.elems.map(*.concretize($schema)).list;
+	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
+	method concretize($schema, $namespaces, %callbacks) {
+		my @pairs := @.elems.map(*.concretize($schema, $namespaces, %callbacks)).list;
+		if $!tag ~~ NonSpecificTag {
+			return @pairs;
+		}
+		else {
+			my $full-name = $!tag.full-name($namespaces);
+			return %callbacks{$full-name}(@pairs);
+		}
 	}
 }
 
 class Document {
-	has Any $.version;
-	has Str %.tags;
-	has $.root;
-	method concretize($schema) {
-		return $!root.concretize($schema);
+	has Rat $.version is default(1.2);
+	has Element:D $.root is required;
+	has Namespace:D $.namespace is required;
+	submethod BUILD(:$!root, :$!namespace = Namespace.new, :$!version = Nil) {
+	}
+	method concretize($schema, %callbacks) {
+		return $!root.concretize($schema, $!namespace, %callbacks);
 	}
 }
-
-my $yaml-namespace = 'tag:yaml.org,2002:';
 
 grammar Grammar {
 	method indent-panic($/, $indent, $what) {
@@ -98,11 +164,10 @@ grammar Grammar {
 	token directive-document {
 		<directives>
 		{  }
-		:my %*yaml-prefix = %( $<directives>.ast<tags> );
 		<explicit-document>
 	}
 	token directives {
-		[ '%' [ <yaml-directive> | <tag-directive> ] <.space>* <.line-break> ]+
+		[ '%' [ <version=yaml-directive> | <tags=tag-directive> ] <.space>* <.line-break> ]+
 	}
 	token yaml-directive {
 		'YAML' <.space>+ $<version>=[ <[0..9]>+ \. <[0..9]>+ ]
@@ -248,9 +313,11 @@ grammar Grammar {
 	}
 
 	token single-quoted {
+		<properties>?
 		"'" $<value>=[ [ <-[']> | "''" ]* ] "'"
 	}
 	token double-quoted {
+		<properties>?
 		\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=foldable-whitespace> | <str=space> ]*
 	}
 	token quoted-bare {
@@ -272,6 +339,7 @@ grammar Grammar {
 	}
 
 	token inline-map {
+		<properties>?
 		'{' <.ws> <pairlist> <.ws> '}'
 	}
 	rule pairlist {
@@ -282,6 +350,7 @@ grammar Grammar {
 	}
 
 	token inline-list {
+		<properties>?
 		'[' <.ws> <inline-list-inside> <.ws> ']'
 	}
 	rule inline-list-inside {
@@ -373,34 +442,37 @@ grammar Grammar {
 			self!first($/);
 		}
 		method directive-document($/) {
-			my $version = $<directives><version>;
-			my %tags = $<directives><tags>.kv;
+			my $version = $<directives>.ast<version> // Rat;
+			my %prefixes = $<directives>.ast<tags>;
+			my $namespace = Namespace.new(:%prefixes);
 			my $root = $<explicit-document>.ast.root;
-			make Document.new(:$root, :$version, :%tags);
+			make Document.new(:$root, :$namespace, :$version);
 		}
 		method directives($/) {
-			my %tags = @<tag-directive>».ast;
-			my $version = 1.2;
-			make { :%tags, :$version };
+			my %directives;
+			%directives<tags> = @<tag-directive>».ast.list;
+			%directives<version> = @<yaml-directive>[0].ast.Rat if @<yaml-directives> == 0;
+			make %directives;
 		}
 		method tag-directive($/) {
 			make ~$<tag-handle> => ~$<tag-prefix>
 		}
 		method explicit-document($/) {
-			make Document.new(:root($<document>.ast));
+			make Document.new(:root($<document>.ast.root));
 		}
 		method bare-document($/) {
 			my $root = $/.values.[0].ast;
 			make Document.new(:$root);
 		}
 		method simple-document($/) {
-			self!first($/);
+			my $root = $/.values.[0].ast;
+			make Document.new(:$root);
 		}
 		method empty-document($/) {
 			make Nil;
 		}
 		method map($/) {
-			make Mapping.new(pairs => @<map-entry>».ast);
+			make Mapping.new(:elems(@<map-entry>».ast));
 		}
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
@@ -409,7 +481,7 @@ grammar Grammar {
 			self!first($/);
 		}
 		method yamllist($/) {
-			make Sequence.new(elems => @<list-entry>».ast.list);
+			make Sequence.new(:elems(@<list-entry>».ast));
 		}
 		method list-entry($/) {
 			make $<element>.ast;
@@ -422,15 +494,17 @@ grammar Grammar {
 		}
 		method single-quoted($/) {
 			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
-			make String.new(:$value);
+			my $tag = $<properties><tag>.ast // $resolved;
+			make Single.new(:$value, :$tag);
 		}
 		method single-key($/) {
 			my $value = $<value>.Str.subst("''", "'", :g);
-			make String.new(:$value);
+			make Single.new(:$value, :tag($resolved));
 		}
 		method double-quoted($/) {
 			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
-			make String.new(:$value);
+			my $tag = $<properties><tag>.ast // $resolved;
+			make Single.new(:$value, :$tag);
 		}
 		method double-key($/) {
 			self.double-quoted($/);
@@ -440,12 +514,14 @@ grammar Grammar {
 		}
 		method plain($/) {
 			my $value = ~$<value>;
-			my $ast = Plain.new(:$value);
+			my $tag = $<properties><tag>.ast // $unresolved;
+			my $ast = Single.new(:$value, :$tag);
 			make $ast;
 			self!save($<properties><anchor>.ast, $ast) if $<properties><anchor>;
 		}
 		method inline-plain($/) {
-			make Plain.new(value => ~$<value>);
+			my $tag = $<properties><tag>.ast // $unresolved;
+			make Single.new(value => ~$<value>, :$tag);
 		}
 		method block-string($/) {
 			my $ret = $<content>.map(* ~ "\n").join('');
@@ -454,7 +530,8 @@ grammar Grammar {
 				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
 			}
 			my $value = self!handle_properties($<properties>, $/, $ret);
-			make String.new(:$value);
+			my $tag = $<properties><tag>.ast // $unresolved;
+			make Single.new(:$value, :$tag);
 		}
 
 		method !save($name, $value) {
@@ -465,7 +542,7 @@ grammar Grammar {
 		}
 
 		method inline-map($/) {
-			make Mapping.new(pairs => $<pairlist>.ast);
+			make Mapping.new(:elems($<pairlist>.ast));
 		}
 		method pairlist($/) {
 			make @<pair>».ast.list;
@@ -477,7 +554,7 @@ grammar Grammar {
 			make ~$/;
 		}
 		method inline-list($/) {
-			make Sequence.new(elems => @($<inline-list-inside>.ast));
+			make Sequence.new(:elems($<inline-list-inside>.ast));
 		}
 		method inline-list-inside($/) {
 			make @<inline>».ast.list;
@@ -499,7 +576,8 @@ grammar Grammar {
 			make $<value>.ast;
 		}
 		method verbatim-tag($/) {
-			make @<uri-char>».ast.join('');
+			my $url = @<uri-char>».ast.join('');
+			make VerbatimTag.new(:$url);
 		}
 		method uri-char($/) {
 			make $<char>;
@@ -510,27 +588,14 @@ grammar Grammar {
 		method uri-escaped-char($/) {
 			:16(~$<hex>);
 		}
-		method !lookup-namespace($name) {
-			return %*yaml-prefix{$name} // do given $name {
-				when '!' {
-					'!';
-				}
-				when '!!' {
-					$yaml-namespace;
-				}
-				default {
-					die "No such prefix $name known: " ~ %*yaml-prefix.keys.join(", ");
-				}
-			}
-		}
 		method shorthand-tag($/) {
-			make self!lookup-namespace($<tag-handle>.ast) ~ ~$<tag-name>;
+			make ShortHandTag.new(:namespace($<tag-handle>.ast), :local(~$<tag-name>));
 		}
 		method tag-handle($/) {
 			make ~$/;
 		}
-		method non-specific-tag {
-			make '!';
+		method non-specific-tag($/) {
+			make NonSpecificTag.new(:resolved);
 		}
 
 		method alias($/) {
@@ -574,88 +639,12 @@ grammar Grammar {
 		}
 	}
 
-	my %yaml-tags = (
-		$yaml-namespace => {
-			str => sub ($ast, $value) {
-				given $value {
-					when Str {
-						return $value;
-					}
-					when Bool|Numeric|Date|DateTime|*.defined.not {
-						return ~$ast;
-					}
-					when Positional|Associative {
-						die "Couldn't convert collection into string";
-					}
-					default {
-						die "Couldn't resolve { $value.WHAT } to string";
-					}
-				}
-			},
-			int => sub ($, $value) {
-				given $value {
-					when Numeric|Str|Bool {
-						return $value.Int;
-					}
-					default {
-						die "Couldn't resolve a { $value.WHAT } to integer";
-					}
-				}
-			},
-			float => sub ($, $value) {
-				given $value {
-					when Rat|Num {
-						return $value;
-					}
-					when Int|Str {
-						return $value.Rat;
-					}
-					default {
-						die "Couldn't resolve a { $value.WHAT } to float";
-					}
-				}
-			},
-			null => sub ($, $value) {
-				return Nil;
-			},
-			binary => sub ($, $value) {
-				require MIME::Base64;
-				return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
-				die "Binary has to be a string";
-			},
-			seq => sub ($, $value) {
-				return $value if $value ~~ Iterable;
-				die "Could not convert { $value.WHAT } to a sequence";
-			},
-			map => sub ($, $value) {
-				return $value if $value ~~ Associative;
-				die "Could not convert { $value.WHAT } to am Associative";
-			},
-			set => sub ($ast, $value) {
-				return $value.keys.set if $value ~~ Associative;
-				die "Could not convert { $value.WHAT } to a set";
-			},
-			omap => sub ($ast, $value) {
-				die "Ordered maps not implemented yet"
-			},
-		},
-	);
-	my sub flatten-tags(%tags) {
-		return %tags.kv.map({ |$^value.kv.map($^namespace ~ * => *) } );
-	}
-	my %default-tags = flatten-tags(%yaml-tags);
 	method parse($string, :%tags, *%args) {
 		my %*yaml-anchors;
-		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
-		my $*yaml-version = 1.2;
-		my %*yaml-prefix;
 		nextwith($string, :actions(Actions), |%args);
 	}
 	method subparse($string, :%tags, *%args) {
 		my %*yaml-anchors;
-		my %*yaml-tags = |%default-tags, |flatten-tags(%tags);
-		my $*yaml-version = 1.2;
-		my %*yaml-prefix;
 		nextwith($string, :actions(Actions), |%args);
 	}
 }
@@ -775,19 +764,65 @@ grammar Schema::Extra is Schema::Core {
 	}
 }
 
-our sub load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core) is export {
-	my $match = Grammar.parse($input);
-	CATCH {
-		fail "Couldn't parse YAML: $_";
-	}
-	return $match ?? $match.ast[0].concretize($schema) !! fail "Couldn't parse YAML";
+my %yaml-tags = (
+	$yaml-namespace => {
+		str => sub ($value) {
+			return $value if $value ~~ Str;
+			die "Couldn't resolve { $value.WHAT } to string";
+		},
+		int => sub ($value) {
+			return $value.Int if $value ~~ Str;
+			die "Couldn't resolve a { $value.WHAT } to integer";
+		},
+		float => sub ($value) {
+			return $value.Rat if $value ~~ Str;
+			die "Couldn't resolve a { $value.WHAT } to float";
+		},
+		null => sub ($) {
+			return Nil;
+		},
+		binary => sub ($, $value) {
+			require MIME::Base64;
+			return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
+			die "Binary has to be a string";
+		},
+		seq => sub ($value) {
+			return $value if $value ~~ Iterable;
+			die "Could not convert { $value.WHAT } to a sequence";
+		},
+		map => sub ($value) {
+			return $value if $value ~~ Associative;
+			die "Could not convert { $value.WHAT } to am Associative";
+		},
+		set => sub ($value) {
+			return $value.keys.set if $value ~~ Associative;
+			die "Could not convert { $value.WHAT } to a set";
+		},
+		omap => sub ($value) {
+			die "Ordered maps not implemented yet"
+		},
+	},
+);
+my sub flatten-tags(%tags) {
+	return %tags.kv.map({ |$^value.kv.map($^namespace ~ * => *) } );
 }
-our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core) is export {
+my %default-tags = flatten-tags(%yaml-tags);
+
+our sub load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
 	}
-	return $match ?? $match.ast.map(*.concretize($schema)) !! fail "Couldn't parse YAML";
+	my Callable %callbacks = |%default-tags, |flatten-tags(%tags);
+	return $match ?? $match.ast[0].concretize($schema, %callbacks) !! fail "Couldn't parse YAML";
+}
+our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is export {
+	my $match = Grammar.parse($input);
+	CATCH {
+		fail "Couldn't parse YAML: $_";
+	}
+	my Callable %callbacks = |%default-tags, |flatten-tags(%tags);
+	return $match ?? $match.ast.map(*.concretize($schema, %callbacks)) !! fail "Couldn't parse YAML";
 }
 
 proto to-yaml($;$ = Str) {*}
