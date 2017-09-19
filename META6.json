@@ -1,6 +1,6 @@
 {
     "name" : "YAMLish",
-    "version" : "0.0.3",
+    "version" : "0.0.4",
     "author" : "Leon Timmermans",
     "description" : "A pure perl6 implementation of YAML",
     "perl" : "6.*",
