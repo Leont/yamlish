@@ -5,9 +5,12 @@ unit module YAMLish;
 grammar Grammar {
 	my $yaml-namespace = 'tag:yaml.org,2002:';
 
-	method indent-panic($/, $indent, $what) {
+	method panic($/, $message = 'Parse failure') {
 		my ($line-num, $column) := self.line-column($/);
-		die "Problem with indentatiton in $what at {$line-num}:{$column}."
+		die "$message at {$line-num}:{$column}."
+	}
+	method indent-panic($/, $indent, $what) {
+		self.panic($/, "Problem with indentation in $what");
 	}
 
 	method line-column($/) {
@@ -218,12 +221,39 @@ grammar Grammar {
 		<.space>* <.line-break> <.space>*
 	}
 	token block-string(Str $indent) {
-		<properties>?
-		$<kind>=<[\|\>]> <.space>*
-		<.comment>? <.line-break>
 		:my $new-indent;
-		<?before $indent $<sp>=' '+ { $new-indent = $indent ~ $<sp> }>
-		[ $new-indent $<content>=[ \N* ] | $indent <.before <.line-break> > ]+ % <.line-break>
+
+		<properties>?
+		$<kind>=<[\|\>]>
+		$<chomp>=<[+-]>?
+		[ $<specific-indent>=\d+
+			{
+				$new-indent = $indent.chars + $<specific-indent>;
+				self.panic($<specific-indent>, 'Indentation indicator must be > 0')
+					unless $new-indent > 0;
+			}
+		]?
+		<.space>* <.comment>?
+
+		:my $max-blank = '';
+		[ <.line-break> [
+			# A block-string may start with blank lines. Blank lines must
+			# not have more indentation than the first non-blank line.
+			| <?{ not $new-indent }> $<sp>=' '* $<content>=<?> $$
+				{ $max-blank = $<sp>.tail if $<sp>.tail.chars > $max-blank.chars }
+
+			| <?{ not $new-indent }> $<sp>=' ' ** { $indent.chars + 1 .. * } $<content>=[ <-[\ ]> \N* ]
+				{
+					$new-indent = $<sp>.tail.chars;
+					self.indent-panic($max-blank, $new-indent, 'block-string')
+						if $new-indent < $max-blank.chars;
+				}
+
+			| <?{ so $new-indent }> ' ' ** { $new-indent } $<content>=[ \N* ]
+
+			# Blank lines may be indented less
+			| <?{ so $new-indent }> ' ' ** {^$new-indent} $<content>=<?> $$
+		] ]*
 	}
 
 	token yes {
@@ -476,6 +506,9 @@ grammar Grammar {
 			if $<kind> eq '>' {
 				my $/;
 				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
+			}
+			if $<chomp> ne '+' {
+				$ret.=subst(/ \n+ $ /, $<chomp> eq '-' ?? '' !! "\n");
 			}
 			make self!handle_properties($<properties>, $/, $ret);
 		}
