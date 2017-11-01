@@ -450,8 +450,8 @@ grammar Grammar {
 		method space($/) {
 			make ~$/;
 		}
-		method single-quoted($/) {
-			make $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
+		method single-quoted($_) {
+			.make: .<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
 		}
 		method single-key($/) {
 			make $<value>.Str.subst("''", "'", :g);
