@@ -115,4 +115,7 @@ END
 my $expected4 = "foo";
 is(load-yaml($text4), $expected4, 'Tags and directives seem to work');
 
+my $text5 = "foo: bar  \n";
+is-deeply load-yaml($text5), { foo => 'bar' }, 'Trailing whitespae in plain mode is discarded';
+
 done-testing();

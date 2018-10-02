@@ -466,7 +466,7 @@ grammar Grammar {
 			make ' ';
 		}
 		method plain($/) {
-			make self!handle_properties($<properties>, $/, ~$/);
+			make self!handle_properties($<properties>, $/, $/.Str.subst(/<[\ \t]>+$/, ''));
 		}
 		method inline-plain($/) {
 			make ~$<value>
