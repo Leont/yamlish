@@ -59,6 +59,7 @@ my $unresolved = NonSpecificTag.new(:!resolved);
 
 class Single does Element {
 	has Str:D $.value is required;
+	has Str:D $.type is required;
 	method concretize($schema, $namespaces, %callbacks) {
 		my $full-name = $!tag.full-name($namespaces);
 		if $full-name eq '!' {
@@ -495,16 +496,16 @@ grammar Grammar {
 		method single-quoted($/) {
 			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
 			my $tag = $<properties><tag>.ast // $resolved;
-			make Single.new(:$value, :$tag);
+			make Single.new(:$value, :$tag, :type("'"));
 		}
 		method single-key($/) {
 			my $value = $<value>.Str.subst("''", "'", :g);
-			make Single.new(:$value, :tag($resolved));
+			make Single.new(:$value, :tag($resolved), :type("'"));
 		}
 		method double-quoted($/) {
 			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
 			my $tag = $<properties><tag>.ast // $resolved;
-			make Single.new(:$value, :$tag);
+			make Single.new(:$value, :$tag, :type('"'));
 		}
 		method double-key($/) {
 			self.double-quoted($/);
@@ -515,13 +516,13 @@ grammar Grammar {
 		method plain($/) {
 			my $value = ~$<value>;
 			my $tag = $<properties><tag>.ast // $unresolved;
-			my $ast = Single.new(:$value, :$tag);
+			my $ast = Single.new(:$value, :$tag, :type(':'));
 			make $ast;
 			self!save($<properties><anchor>.ast, $ast) if $<properties><anchor>;
 		}
 		method inline-plain($/) {
 			my $tag = $<properties><tag>.ast // $unresolved;
-			make Single.new(value => ~$<value>, :$tag);
+			make Single.new(value => ~$<value>, :$tag, :type(":"));
 		}
 		method block-string($/) {
 			my $ret = $<content>.map(* ~ "\n").join('');
@@ -531,7 +532,7 @@ grammar Grammar {
 			}
 			my $value = self!handle_properties($<properties>, $/, $ret);
 			my $tag = $<properties><tag>.ast // $unresolved;
-			make Single.new(:$value, :$tag);
+			make Single.new(:$value, :$tag, :type('>'));
 		}
 
 		method !save($name, $value) {
