@@ -105,12 +105,12 @@ class Sequence does Element {
 	}
 }
 
+my $default-version = 1.2;
 class Document {
-	has Rat $.version is default(1.2);
+	has Rat:D $.version = $default-version;
 	has Element:D $.root is required;
-	has Namespace:D $.namespace is required;
-	submethod BUILD(:$!root, :$!namespace = Namespace.new, :$!version = Nil) {
-	}
+	has Namespace:D $.namespace = Namespace.new;
+	has Bool:D $.explicit is required;
 	method concretize($schema, %callbacks) {
 		return $!root.concretize($schema, $!namespace, %callbacks);
 	}
@@ -443,11 +443,11 @@ grammar Grammar {
 			self!first($/);
 		}
 		method directive-document($/) {
-			my $version = $<directives>.ast<version> // Rat;
+			my $version = $<directives>.ast<version> // $default-version;
 			my %prefixes = $<directives>.ast<tags>;
 			my $namespace = Namespace.new(:%prefixes);
 			my $root = $<explicit-document>.ast.root;
-			make Document.new(:$root, :$namespace, :$version);
+			make Document.new(:$root, :$namespace, :$version, :explicit);
 		}
 		method directives($/) {
 			my %directives;
@@ -459,15 +459,15 @@ grammar Grammar {
 			make ~$<tag-handle> => ~$<tag-prefix>
 		}
 		method explicit-document($/) {
-			make Document.new(:root($<document>.ast.root));
+			make Document.new(:root($<document>.ast.root), :explicit);
 		}
 		method bare-document($/) {
 			my $root = $/.values.[0].ast;
-			make Document.new(:$root);
+			make Document.new(:$root, :!explicit);
 		}
 		method simple-document($/) {
 			my $root = $/.values.[0].ast;
-			make Document.new(:$root);
+			make Document.new(:$root, :!explicit);
 		}
 		method empty-document($/) {
 			make Nil;
