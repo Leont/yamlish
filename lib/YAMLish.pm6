@@ -857,6 +857,59 @@ our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is
 	return $match ?? $match.ast.map(*.concretize($schema, %callbacks)) !! fail "Couldn't parse YAML";
 }
 
+my proto emit-yaml($, $) {*}
+
+my sub escape-chars(Str:D $str) {
+	return $str.trans(['\\',   "\b", "\f", "\n", "\r", "\t", "\r\n"]
+				=> ['\\\\', '\b', '\f', '\n', '\r', '\t', '\r\n'])\
+				.subst(/<-[\c9\xA\xD\x20..\x7E\xA0..\xD7FF\xE000..\xFFFD\x10000..\x10FFFF]>/, {
+					given .ord { $_ > 0xFFFF ?? .fmt("\\U%08x") !! $_ > 0xFF ?? .fmt("\\u%04x") !! .fmt("\\x%02x") }
+				}, :g);
+}
+
+multi emit-yaml(Single $single, Namespace $namespace) {
+	my @parts = '=VAL';
+	@parts.push: '&' ~ $single.anchor with $single.anchor;
+	@parts.push: '<' ~ $single.tag.full-name($namespace) ~ '>' if $single.tag !~~ NonSpecificTag;
+	@parts.push: $single.type ~ escape-chars($single.value);
+	take @parts.join(' ');
+}
+
+multi emit-yaml(Mapping $mapping, Namespace $namespace) {
+	take '+MAP';
+	for $mapping.elems -> $pair {
+		emit-yaml($pair.key, $namespace);
+		emit-yaml($pair.value, $namespace);
+	}
+	take '-MAP';
+}
+
+multi emit-yaml(Sequence $sequence, Namespace $namespace) {
+	take '+SEQ';
+	for $sequence.elems -> $elem {
+		emit-yaml($elem, $namespace);
+	}
+	take '-SEQ';
+}
+
+multi emit-yaml(Alias $alias, Namespace $namespace) {
+	take '=ALI *' ~ $alias.identifier
+}
+
+our sub stream-yaml(Str $input) is export {
+	gather {
+		if Grammar.parse($input) -> $match {
+			take '+STR';
+			for $match.ast -> $document {
+				take '+DOC' ~ ($document.explicit ?? ' ---' !! '');
+				emit-yaml($document.root, $document.namespace);
+				take '-DOC';
+			}
+			take '-STR';
+		}
+	}
+}
+
 proto to-yaml($;$ = Str) {*}
 
 multi to-yaml(Real:D $d; $ = Str) { ~$d }
@@ -865,13 +918,7 @@ multi to-yaml(Str:D  $d where /^ <!Schema::Core::element> <[\w.-]>+ $/; $ = Str)
 	return $d;
 }
 multi to-yaml(Str:D  $d; $) {
-	'"'
-	~ $d.trans(['"',  '\\',   "\b", "\f", "\n", "\r", "\t"]
-			=> ['\"', '\\\\', '\b', '\f', '\n', '\r', '\t'])\
-			.subst(/<-[\c9\xA\xD\x20..\x7E\xA0..\xD7FF\xE000..\xFFFD\x10000..\x10FFFF]>/, {
-				given .ord { $_ > 0xFFFF ?? .fmt("\\U%08x") !! $_ > 0xFF ?? .fmt("\\u%04x") !! .fmt("\\x%02x") }
-			}, :g)
-	~ '"'
+	return '"' ~ escape-chars($d).trans('"' => '\"') ~ '"'
 }
 multi to-yaml(Positional:D $d, Str $indent) {
 	return ' []' unless $d.elems;
