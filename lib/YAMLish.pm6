@@ -659,7 +659,7 @@ grammar Schema::JSON {
 	proto token element { * }
 	token element:<null> {
 		'null'
-		{ make Nil }
+		{ make Any }
 	}
 	token element:<int> {
 		<[+-]>?
@@ -734,7 +734,7 @@ grammar Schema::Core is Schema::JSON {
 	}
 	token element:<null> {
 		[ :i 'null' | '~' ]
-		{ make Nil }
+		{ make Any }
 	}
 	token element:<yes> {
 		[ :i y | yes | true | on ] <|w>
@@ -780,7 +780,7 @@ my %yaml-tags = (
 			die "Couldn't resolve a { $value.WHAT } to float";
 		},
 		null => sub ($) {
-			return Nil;
+			return Any;
 		},
 		binary => sub ($, $value) {
 			require MIME::Base64;

@@ -210,7 +210,7 @@ my @SCHEDULE = (
 		name  => 'only_comment',
 		error => rx{document\s+header\s+not\s+found}
 	},
-	{   out => Nil,
+	{   out => Any,
 		in  => [
 			'---',
 			'...'
@@ -218,7 +218,7 @@ my @SCHEDULE = (
 		name  => 'only_header',
 		error => rx:i{Premature\s+end},
 	},
-	{   out => Nil,
+	{   out => Any,
 		in  => [
 			'---',
 			'---',
@@ -227,7 +227,7 @@ my @SCHEDULE = (
 		name  => 'two_header',
 		error => rx:i{Unexpected\s+start},
 	},
-	{   out => Nil,
+	{   out => Any,
 		in  => [
 			'--- ~',
 			'...'
@@ -292,7 +292,7 @@ my @SCHEDULE = (
 		name => 'one_list2'
 	},
 	{   out => (
-			Nil,
+			Any,
 			'bar'
 		),
 		in => [
@@ -313,7 +313,7 @@ my @SCHEDULE = (
 	},
 	{   out => {
 			'foo'  => 'bar',
-			'this' => Nil,
+			'this' => Any,
 		},
 		in => [
 			'---',
@@ -326,7 +326,7 @@ my @SCHEDULE = (
 	{   out => {
 			'foo' => (
 				'bar',
-				Nil,
+				Any,
 				'baz'
 			)
 		},
@@ -342,7 +342,7 @@ my @SCHEDULE = (
 	},
 	{   out => {
 			'bar' => { 'foo' => 'bar' },
-			'foo' => Nil
+			'foo' => Any
 		},
 		in => [
 			'---',
@@ -354,10 +354,10 @@ my @SCHEDULE = (
 		name => 'hash_in_hash'
 	},
 	{   out => (
-			{   'foo'  => Nil,
+			{   'foo'  => Any,
 				'this' => 'that'
 			},
-			'foo', Nil,
+			'foo', Any,
 			{   'foo'  => 'bar',
 				'this' => 'that'
 			}
@@ -408,7 +408,7 @@ my @SCHEDULE = (
 		name => 'only_spaces'
 	},
 	{   out => (
-			Nil,
+			Any,
 			{   'foo'  => 'bar',
 				'this' => 'that'
 			},
