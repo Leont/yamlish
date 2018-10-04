@@ -94,7 +94,7 @@ class Sequence does Element {
 	has Element @.elems;
 	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
 	method concretize($schema, $namespaces, %callbacks) {
-		my @pairs := @.elems.map(*.concretize($schema, $namespaces, %callbacks)).list;
+		my @pairs = @.elems.map(*.concretize($schema, $namespaces, %callbacks)).list;
 		if $!tag ~~ NonSpecificTag {
 			return @pairs;
 		}
