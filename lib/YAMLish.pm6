@@ -437,7 +437,7 @@ grammar Grammar {
 	}
 
 	token shorthand-tag {
-		<tag-handle> $<tag-name>=[ <tag-char>+ ]
+		<tag-handle> <tag-char>+
 	}
 	token tag-handle {
 		'!' [ <[ A..Z a..z 0..9 ]>* '!' ]?
@@ -608,10 +608,13 @@ grammar Grammar {
 			make ~$/;
 		}
 		method uri-escaped-char($/) {
-			:16(~$<hex>);
+			make :16(~$<hex>).chr;
 		}
 		method shorthand-tag($/) {
-			make ShortHandTag.new(:namespace($<tag-handle>.ast), :local(~$<tag-name>));
+			make ShortHandTag.new(:namespace($<tag-handle>.ast), :local(@<tag-char>».ast.join('')));
+		}
+		method tag-char($/) {
+			make $<char>.ast // ~$<char>;
 		}
 		method tag-handle($/) {
 			make ~$/;
