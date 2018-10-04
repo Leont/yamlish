@@ -42,16 +42,26 @@ class VerbatimTag does Tag {
 
 class NonSpecificTag does Tag {
 	has Bool:D $.resolved is required;
-	method concretize() {
-	}
 	method full-name(Namespace $) {
 		return $!resolved ?? '!' !! '?';
 	}
 }
 
-role Element {
+role Node {
+	method concretize($, $, %, %) { ... }
+}
+
+role Element does Node {
 	has Tag:D $.tag is required;
-	method concretize($, $, %) { ... }
+	has Str $.anchor;
+	method make-value($, $, %, %) { ... }
+	method concretize($schema, $namespaces, %anchors, %callbacks) {
+		my $value = self.make-value($schema, $namespaces, %anchors, %callbacks);
+		with $!anchor {
+			%anchors{$!anchor} = $value;
+		}
+		return $value;
+	}
 }
 
 my $resolved = NonSpecificTag.new(:resolved);
@@ -60,7 +70,7 @@ my $unresolved = NonSpecificTag.new(:!resolved);
 class Single does Element {
 	has Str:D $.value is required;
 	has Str:D $.type is required;
-	method concretize($schema, $namespaces, %callbacks) {
+	method make-value($schema, $namespaces, %anchors, %callbacks) {
 		my $full-name = $!tag.full-name($namespaces);
 		if $full-name eq '!' {
 			return $!value;
@@ -78,8 +88,8 @@ class Single does Element {
 class Mapping does Element {
 	has Pair @.elems;
 	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
-	method concretize($schema, $namespaces, %callbacks) {
-		my @pairs := @.elems.map({ .key.concretize($schema, $namespaces, %callbacks) => .value.concretize($schema, $namespaces, %callbacks)}).list;
+	method make-value($schema, $namespaces, %anchors, %callbacks) {
+		my @pairs := @.elems.map({ .key.make-value($schema, $namespaces, %anchors, %callbacks) => .value.make-value($schema, $namespaces, %anchors, %callbacks)}).list;
 		if $!tag ~~ NonSpecificTag {
 			return @pairs.hash;
 		}
@@ -91,10 +101,10 @@ class Mapping does Element {
 }
 
 class Sequence does Element {
-	has Element @.elems;
+	has Node @.elems;
 	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
-	method concretize($schema, $namespaces, %callbacks) {
-		my @pairs = @.elems.map(*.concretize($schema, $namespaces, %callbacks)).list;
+	method make-value($schema, $namespaces, %anchors, %callbacks) {
+		my @pairs = @.elems.map(*.concretize($schema, $namespaces, %anchors, %callbacks)).list;
 		if $!tag ~~ NonSpecificTag {
 			return @pairs;
 		}
@@ -105,6 +115,13 @@ class Sequence does Element {
 	}
 }
 
+class Alias does Node {
+	has Str:D $.identifier is required;
+	method concretize($schema, $namespaces, %anchors, %callbacks) {
+		return %anchors{$!identifier} // die "Unknown anchor " ~ $!identifier;
+	}
+}
+
 my $default-version = 1.2;
 class Document {
 	has Rat:D $.version = $default-version;
@@ -112,7 +129,8 @@ class Document {
 	has Namespace:D $.namespace = Namespace.new;
 	has Bool:D $.explicit is required;
 	method concretize($schema, %callbacks) {
-		return $!root.concretize($schema, $!namespace, %callbacks);
+		my %anchors;
+		return $!root.concretize($schema, $!namespace, %anchors, %callbacks);
 	}
 }
 
@@ -197,23 +215,23 @@ grammar Grammar {
 		'...'
 	}
 	token bare-document {
+		<!before '---' | '...'>
 		[
-		| <.newline> <!before '---' | '...'> <map('')>
-		| <.newline> <yamllist('')>
+		| <block('', 0)>
 		| <.begin-space> <inline>
 		| <.begin-space> <block-string('')>
-		| <.begin-space> <!before '---' | '...'> <plain>
+		|| <.begin-space> <!before '---' | '...'> <plain>
 		]
 		[ <.newline> | <.space>* <.comment> ]
 	}
 	token simple-document {
 		<!before '---' | '...'>
 		[
-		| <map('')>
-		| <yamllist('')>
+		| <block('', 0)>
+		| <root-block>
 		| <inline>
 		| <block-string('')>
-		| <plain>
+		|| <plain>
 		]
 		[ <.newline> | <.space>* <.comment> ]?
 	}
@@ -255,7 +273,14 @@ grammar Grammar {
 		:my $new-indent;
 		<?before $indent $<sp>=[' ' ** { $minimum-indent..* } ] { $new-indent = $indent ~ $<sp> }>
 		$new-indent
-		[ <value=yamllist($new-indent)> | <value=map($new-indent)> ]
+		[ <value=sequence($new-indent)> | <value=map($new-indent)> ]
+	}
+
+	token root-block {
+		:my $new-indent;
+		<?before $<sp>=[' ' ** { 0..* } ] { $new-indent = ~$<sp> }>
+		$new-indent
+		[ <value=sequence($new-indent)> | <value=map($new-indent)> ]
 	}
 
 	token map(Str $indent) {
@@ -268,7 +293,7 @@ grammar Grammar {
 		  <.space>* ':' <.space>+ <element($indent, 0)>
 	}
 
-	token yamllist(Str $indent) {
+	token sequence(Str $indent) {
 		<list-entry($indent)>+ % [ <.newline> $indent ]
 		[ <.newline> $indent \s+ $<wrongdash>='-' <?break> {} <.indent-panic: $<wrongdash>, $indent, "list"> ]?
 	}
@@ -282,7 +307,7 @@ grammar Grammar {
 	token cuddly-list-entry(Str $indent) {
 		:my $new-indent;
 		$<sp>=' '+ { $new-indent = $indent ~ ' ' ~ $<sp> }
-		[ <element=map($new-indent)> | <element=yamllist($new-indent)> ]
+		[ <element=map($new-indent)> | <element=sequence($new-indent)> ]
 	}
 
 	token key {
@@ -366,15 +391,11 @@ grammar Grammar {
 	}
 
 	token inline {
-		<properties>?
-
-		[
 		| <value=alias>
 		| <value=inline-map>
 		| <value=inline-list>
 		| <value=single-quoted>
 		| <value=double-quoted>
-		]
 	}
 
 	token properties {
@@ -473,7 +494,7 @@ grammar Grammar {
 			make Nil;
 		}
 		method map($/) {
-			make Mapping.new(:elems(@<map-entry>».ast));
+			make [ Mapping, @<map-entry>».ast ];
 		}
 		method map-entry($/) {
 			make $<key>.ast => $<element>.ast
@@ -481,14 +502,15 @@ grammar Grammar {
 		method key($/) {
 			self!first($/);
 		}
-		method yamllist($/) {
-			make Sequence.new(:elems(@<list-entry>».ast));
+		method sequence($/) {
+			make [ Sequence, @<list-entry>».ast ];
 		}
 		method list-entry($/) {
 			make $<element>.ast;
 		}
 		method cuddly-list-entry($/) {
-			make $<element>.ast;
+			my ($class, $elems) = @($<element>.ast);
+			make $class.new(:$elems);
 		}
 		method space($/) {
 			make ~$/;
@@ -496,7 +518,8 @@ grammar Grammar {
 		method single-quoted($/) {
 			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
 			my $tag = $<properties><tag>.ast // $resolved;
-			make Single.new(:$value, :$tag, :type("'"));
+			my $anchor = $<properties><anchor>.ast // Str;
+			make Single.new(:$value, :$tag, :$anchor, :type("'"));
 		}
 		method single-key($/) {
 			my $value = $<value>.Str.subst("''", "'", :g);
@@ -505,7 +528,8 @@ grammar Grammar {
 		method double-quoted($/) {
 			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
 			my $tag = $<properties><tag>.ast // $resolved;
-			make Single.new(:$value, :$tag, :type('"'));
+			my $anchor = $<properties><anchor>.ast // Str;
+			make Single.new(:$value, :$tag, :$anchor, :type('"'));
 		}
 		method double-key($/) {
 			self.double-quoted($/);
@@ -516,34 +540,32 @@ grammar Grammar {
 		method plain($/) {
 			my $value = ~$<value>;
 			my $tag = $<properties><tag>.ast // $unresolved;
-			my $ast = Single.new(:$value, :$tag, :type(':'));
-			make $ast;
-			self!save($<properties><anchor>.ast, $ast) if $<properties><anchor>;
+			my $anchor = $<properties><anchor>.ast // Str;
+			make Single.new(:$value, :$tag, :$anchor, :type(':'));
 		}
 		method inline-plain($/) {
 			my $tag = $<properties><tag>.ast // $unresolved;
 			make Single.new(value => ~$<value>, :$tag, :type(":"));
 		}
 		method block-string($/) {
-			my $ret = $<content>.map(* ~ "\n").join('');
+			my $value = $<content>.map(* ~ "\n").join('');
 			if $<kind> eq '>' {
 				my $/;
-				$ret.=subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
+				$value .= subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
 			}
-			my $value = self!handle_properties($<properties>, $/, $ret);
 			my $tag = $<properties><tag>.ast // $unresolved;
-			make Single.new(:$value, :$tag, :type('>'));
+			my $anchor = $<properties><anchor>.ast // Str;
+			make Single.new(:$value, :$tag, :$anchor, :type(~$<kind>));
 		}
 
-		method !save($name, $value) {
-			%*yaml-anchors{$name} = $value;
-		}
 		method element($/) {
 			make $<value>.ast;
 		}
 
 		method inline-map($/) {
-			make Mapping.new(:elems($<pairlist>.ast));
+			my $tag = $<properties><tag>.ast // $unresolved;
+			my $anchor = $<properties><anchor>.ast // Str;
+			make Mapping.new(:elems($<pairlist>.ast), :$tag, :$anchor);
 		}
 		method pairlist($/) {
 			make @<pair>».ast.list;
@@ -555,7 +577,9 @@ grammar Grammar {
 			make ~$/;
 		}
 		method inline-list($/) {
-			make Sequence.new(:elems($<inline-list-inside>.ast));
+			my $tag = $<properties><tag>.ast // $unresolved;
+			my $anchor = $<properties><anchor> // Str;
+			make Sequence.new(:elems($<inline-list-inside>.ast), :$tag, :$anchor);
 		}
 		method inline-list-inside($/) {
 			make @<inline>».ast.list;
@@ -564,15 +588,9 @@ grammar Grammar {
 			make $<value>.ast;
 		}
 		method inline($/) {
-			# XXX
-			make self!handle_properties($<properties>, $<value>);
+			make $<value>.ast;
 		}
 
-		method !handle_properties($properties, $match, $value = $match.ast) {
-			return $value if not $properties;
-			self!save($properties<anchor>.ast, $value) if $properties<anchor>;
-			return $value;
-		}
 		method tag($/) {
 			make $<value>.ast;
 		}
@@ -600,11 +618,24 @@ grammar Grammar {
 		}
 
 		method alias($/) {
-			make %*yaml-anchors{~$<identifier>.ast} // die "Unknown anchor " ~ $<identifier>.ast;
+			make Alias.new(:identifier($<identifier>.ast));
 		}
 
 		method block($/) {
-			make self!handle_properties($<properties>, $<value>);
+			my ($class, $elems) = @($<value>.ast);
+			if $<properties> {
+				my $tag = $<properties><tag>.ast // $unresolved;
+				my $anchor = $<properties><anchor>.ast;
+				make $class.new(:$elems, :$tag, :$anchor);
+			}
+			else {
+				make $class.new(:$elems);
+			}
+		}
+
+		method root-block($/) {
+			my ($class, $elems) = @($<value>.ast);
+			make $class.new(:$elems);
 		}
 
 		method anchor($/) {
