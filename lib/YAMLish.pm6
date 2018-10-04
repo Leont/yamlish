@@ -353,7 +353,7 @@ grammar Grammar {
 		<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 	}
 	token foldable-whitespace {
-		<.space>* <.line-break> <.space>*
+		<.space>* $<breaks>=[ <line-break> <.space>* ]+
 	}
 	token block-string(Str $indent) {
 		<properties>?
@@ -515,8 +515,11 @@ grammar Grammar {
 		method space($/) {
 			make ~$/;
 		}
+		my sub flow-fold(Str:D $str) {
+			return $str.comb("\n") > 1 ?? "\n" !! ' ';
+		}
 		method single-quoted($/) {
-			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, ' ', :g).subst("''", "'", :g);
+			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, -> $space { flow-fold(~$space) }, :g).subst("''", "'", :g);
 			my $tag = $<properties><tag>.ast // $resolved;
 			my $anchor = $<properties><anchor>.ast // Str;
 			make Single.new(:$value, :$tag, :$anchor, :type("'"));
@@ -535,7 +538,7 @@ grammar Grammar {
 			self.double-quoted($/);
 		}
 		method foldable-whitespace($/) {
-			make ' ';
+			make flow-fold(~$/);
 		}
 		method plain($/) {
 			my $value = ~$<value>;
