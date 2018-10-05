@@ -51,9 +51,15 @@ role Node {
 	method concretize($, $, %, %) { ... }
 }
 
+my $resolved = NonSpecificTag.new(:resolved);
+my $unresolved = NonSpecificTag.new(:!resolved);
+
 role Element does Node {
-	has Tag:D $.tag is required;
+	has Tag $.tag = Tag;
 	has Str $.anchor;
+	method effective-tag() {
+		return $!tag // $unresolved;
+	}
 	method make-value($, $, %, %) { ... }
 	method concretize($schema, $namespaces, %anchors, %callbacks) {
 		my $value = self.make-value($schema, $namespaces, %anchors, %callbacks);
@@ -64,14 +70,11 @@ role Element does Node {
 	}
 }
 
-my $resolved = NonSpecificTag.new(:resolved);
-my $unresolved = NonSpecificTag.new(:!resolved);
-
-class Single does Element {
+role Single does Element {
 	has Str:D $.value is required;
 	has Str:D $.type is required;
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
-		my $full-name = $!tag.full-name($namespaces);
+		my $full-name = $.effective-tag.full-name($namespaces);
 		if $full-name eq '!' {
 			return $!value;
 		}
@@ -86,16 +89,26 @@ class Single does Element {
 	}
 }
 
+class Plain does Single {
+}
+
+class Quoted does Single {
+	method effective-tag() {
+		return $!tag // $resolved;
+	}
+}
+
 class Mapping does Element {
 	has Pair @.elems;
-	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
+	submethod BUILD(:@!elems, :$!tag = Tag) {}
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
 		my @pairs := @.elems.map({ .key.make-value($schema, $namespaces, %anchors, %callbacks) => .value.make-value($schema, $namespaces, %anchors, %callbacks)}).list;
-		if $!tag ~~ NonSpecificTag {
+		my $tag = $.effective-tag;
+		if $tag ~~ NonSpecificTag {
 			return @pairs.hash;
 		}
 		else {
-			my $full-name = $!tag.full-name($namespaces);
+			my $full-name = $tag.full-name($namespaces);
 			return %callbacks{$full-name}(@pairs);
 		}
 	}
@@ -103,14 +116,15 @@ class Mapping does Element {
 
 class Sequence does Element {
 	has Node @.elems;
-	submethod BUILD(:@!elems, :$!tag = $unresolved) {}
+	submethod BUILD(:@!elems, :$!tag = Tag) {}
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
 		my @pairs = @.elems.map(*.concretize($schema, $namespaces, %anchors, %callbacks)).list;
-		if $!tag ~~ NonSpecificTag {
+		my $tag = $.effective-tag;
+		if $tag ~~ NonSpecificTag {
 			return @pairs;
 		}
 		else {
-			my $full-name = $!tag.full-name($namespaces);
+			my $full-name = $tag.full-name($namespaces);
 			return %callbacks{$full-name}(@pairs);
 		}
 	}
@@ -521,19 +535,19 @@ grammar Grammar {
 		}
 		method single-quoted($/) {
 			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, -> $space { flow-fold(~$space) }, :g).subst("''", "'", :g);
-			my $tag = $<properties><tag>.ast // $resolved;
-			my $anchor = $<properties><anchor>.ast // Str;
-			make Single.new(:$value, :$tag, :$anchor, :type("'"));
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
+			make Quoted.new(:$value, :$tag, :$anchor, :type("'"));
 		}
 		method single-key($/) {
 			my $value = $<value>.Str.subst("''", "'", :g);
-			make Single.new(:$value, :tag($resolved), :type("'"));
+			make Quoted.new(:$value, :type("'"));
 		}
 		method double-quoted($/) {
 			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
-			my $tag = $<properties><tag>.ast // $resolved;
-			my $anchor = $<properties><anchor>.ast // Str;
-			make Single.new(:$value, :$tag, :$anchor, :type('"'));
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
+			make Quoted.new(:$value, :$tag, :$anchor, :type('"'));
 		}
 		method double-key($/) {
 			self.double-quoted($/);
@@ -543,13 +557,13 @@ grammar Grammar {
 		}
 		method plain($/) {
 			my $value = ~$<value>;
-			my $tag = $<properties><tag>.ast // $unresolved;
-			my $anchor = $<properties><anchor>.ast // Str;
-			make Single.new(:$value, :$tag, :$anchor, :type(':'));
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
+			make Plain.new(:$value, :$tag, :$anchor, :type(':'));
 		}
 		method inline-plain($/) {
-			my $tag = $<properties><tag>.ast // $unresolved;
-			make Single.new(value => ~$<value>, :$tag, :type(":"));
+			my Tag $tag = $<properties><tag>.ast;
+			make Plain.new(value => ~$<value>, :$tag, :type(":"));
 		}
 		method block-string($/) {
 			my $value = $<content>.map(* ~ "\n").join('');
@@ -557,9 +571,9 @@ grammar Grammar {
 				my $/;
 				$value .= subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
 			}
-			my $tag = $<properties><tag>.ast // $unresolved;
-			my $anchor = $<properties><anchor>.ast // Str;
-			make Single.new(:$value, :$tag, :$anchor, :type(~$<kind>));
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
+			make Plain.new(:$value, :$tag, :$anchor, :type(~$<kind>));
 		}
 
 		method element($/) {
@@ -567,8 +581,8 @@ grammar Grammar {
 		}
 
 		method inline-map($/) {
-			my $tag = $<properties><tag>.ast // $unresolved;
-			my $anchor = $<properties><anchor>.ast // Str;
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
 			make Mapping.new(:elems($<pairlist>.ast), :$tag, :$anchor);
 		}
 		method pairlist($/) {
@@ -581,8 +595,8 @@ grammar Grammar {
 			make ~$/;
 		}
 		method inline-list($/) {
-			my $tag = $<properties><tag>.ast // $unresolved;
-			my $anchor = $<properties><anchor> // Str;
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>;
 			make Sequence.new(:elems($<inline-list-inside>.ast), :$tag, :$anchor);
 		}
 		method inline-list-inside($/) {
@@ -621,7 +635,7 @@ grammar Grammar {
 			make ~$/;
 		}
 		method non-specific-tag($/) {
-			make NonSpecificTag.new(:resolved);
+			make $resolved;
 		}
 
 		method alias($/) {
@@ -630,14 +644,9 @@ grammar Grammar {
 
 		method block($/) {
 			my ($class, $elems) = @($<value>.ast);
-			if $<properties> {
-				my $tag = $<properties><tag>.ast // $unresolved;
-				my $anchor = $<properties><anchor>.ast;
-				make $class.new(:$elems, :$tag, :$anchor);
-			}
-			else {
-				make $class.new(:$elems);
-			}
+			my Tag $tag = $<properties><tag>.ast;
+			my Str $anchor = $<properties><anchor>.ast;
+			make $class.new(:$elems, :$tag, :$anchor);
 		}
 
 		method root-block($/) {
@@ -877,7 +886,7 @@ my sub escape-chars(Str:D $str) {
 multi emit-yaml(Single $single, Namespace $namespace) {
 	my @parts = '=VAL';
 	@parts.push: '&' ~ $single.anchor with $single.anchor;
-	@parts.push: '<' ~ $single.tag.full-name($namespace) ~ '>' if $single.tag !~~ NonSpecificTag;
+	@parts.push: '<' ~ $single.tag.full-name($namespace) ~ '>' with $single.tag;
 	@parts.push: $single.type ~ escape-chars($single.value);
 	take @parts.join(' ');
 }
