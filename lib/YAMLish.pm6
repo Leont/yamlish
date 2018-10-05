@@ -80,7 +80,8 @@ class Single does Element {
 			return $match ?? $match.ast !! die "Invalid value $!value";
 		}
 		else {
-			return %callbacks{$full-name}($!value);
+			my $callback = %callbacks{$full-name};
+			return $callback ?? $callback($!value) !! $!value;
 		}
 	}
 }
@@ -819,7 +820,7 @@ my %yaml-tags = (
 		null => sub ($) {
 			return Any;
 		},
-		binary => sub ($, $value) {
+		binary => sub ($value) {
 			require MIME::Base64;
 			return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
 			die "Binary has to be a string";
