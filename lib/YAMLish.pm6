@@ -374,6 +374,7 @@ grammar Grammar {
 		<properties>?
 		$<kind>=<[\|\>]> <.space>*
 		<.comment>? <.line-break>
+		[ $indent <.line-break> ]*
 		:my $new-indent;
 		<?before $indent $<sp>=' '+ { $new-indent = $indent ~ $<sp> }>
 		[ $new-indent $<content>=[ \N* ] | $indent <.before <.line-break> > ]+ % <.line-break>
