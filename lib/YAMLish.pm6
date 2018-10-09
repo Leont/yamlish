@@ -353,9 +353,15 @@ grammar Grammar {
 		\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=.space> ]*
 	}
 
-	token single-quoted {
+	regex single-quoted {
 		<properties>?
-		"'" $<value>=[ [ <-[']> | "''" ]* ] "'"
+		"'" ~ "'" [ <str=single-bare> | <str=single-quotes> | <str=foldable-whitespace> | <str=space> ]*
+	}
+	token single-bare {
+		<-['\x0a\x0D\ ]>+
+	}
+	token single-quotes {
+		"''"
 	}
 	token double-quoted {
 		<properties>?
@@ -368,7 +374,7 @@ grammar Grammar {
 		<["\\/abefnrvtzNLP_\ ]> | x <xdigit>**2 | u <xdigit>**4 | U<xdigit>**8
 	}
 	token foldable-whitespace {
-		<.space>* $<breaks>=[ <line-break> <.space>* ]+
+		<.space>* [ <breaks=line-break> <.space>* ]+
 	}
 	token block-string(Str $indent) {
 		<properties>?
@@ -535,17 +541,23 @@ grammar Grammar {
 			return $str.comb("\n") > 1 ?? "\n" !! ' ';
 		}
 		method single-quoted($/) {
-			my $value = $<value>.Str.subst(/<Grammar::foldable-whitespace>/, -> $space { flow-fold(~$space) }, :g).subst("''", "'", :g);
+			my $value = @<str>».ast.join;
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Quoted.new(:$value, :$tag, :$anchor, :type("'"));
+		}
+		method single-bare($/) {
+			make ~$/;
+		}
+		method single-quotes($/) {
+			make "'";
 		}
 		method single-key($/) {
 			my $value = $<value>.Str.subst("''", "'", :g);
 			make Quoted.new(:$value, :type("'"));
 		}
 		method double-quoted($/) {
-			my $value = @<str> == 1 ?? $<str>[0].ast !! @<str>».ast.join;
+			my $value = @<str>».ast.join;
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Quoted.new(:$value, :$tag, :$anchor, :type('"'));
@@ -554,7 +566,8 @@ grammar Grammar {
 			self.double-quoted($/);
 		}
 		method foldable-whitespace($/) {
-			make flow-fold(~$/);
+			my $num = +@<breaks>;
+			make ($num > 1 ?? "\n" xx $num - 1 !! ' ');
 		}
 		method plain($/) {
 			my $value = ~$<value>;
