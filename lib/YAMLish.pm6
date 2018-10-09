@@ -235,7 +235,7 @@ grammar Grammar {
 		| <block('', 0)>
 		| <.begin-space> <inline>
 		| <.begin-space> <block-string('')>
-		|| <.begin-space> <!before '---' | '...'> <plain>
+		|| <.begin-space> <!before '---' | '...'> <plain('')>
 		]
 		[ <.newline> | <.space>* <.comment> ]
 	}
@@ -246,7 +246,7 @@ grammar Grammar {
 		| <root-block>
 		| <inline>
 		| <block-string('')>
-		|| <plain>
+		|| <plain('')>
 		]
 		[ <.newline> | <.space>* <.comment> ]?
 	}
@@ -334,14 +334,17 @@ grammar Grammar {
 		<-[\-\?\:\,\[\]\{\}\#\&\*\!\|\>\'\"\%\@\`\ \t\x0a\x0d]>
 		| <[\?\:\-]> <!before <.space> | <.line-break>>
 	}
-	token plain {
+	regex plain(Str $indent) {
 		<properties>?
-		$<value> = [ <.plainfirst> [ <-[\x0a\x0d\:]> | ':' <!break> ]* ]
+		$<value> = [ <.plainfirst> [ <-[\x0a\x0d\:\#]> | ':' <!break> | <!after <.space>> '#' ]* ]
+		[ <.newline> $indent ' ' $<value> = [ <-[\x0a\x0d\#]>  | <!after <.space>> '#' ]* ]*
+		<!after <.space>> :
+		<.comment>?
 	}
 	regex inline-plain {
 		$<value> = [
 			<.plainfirst> :
-			[ <-[\x0a\x0d\:\,\[\]\{\}]> | ':' <!break> ]*
+			[ <-[\x0a\x0d\:\,\[\]\{\}\#]> | ':' <!break> | <!after <.space>> '#' ]*
 			<!after <.space>> :
 		]
 		<.space>*
@@ -432,7 +435,7 @@ grammar Grammar {
 	token element(Str $indent, Int $minimum-indent) {
 		[  [ <value=block($indent, $minimum-indent)> | <value=block-string($indent)> ]
 		|  <value=inline> <.comment>?
-		|| <value=plain> <.comment>?
+		|| <value=plain($indent)> <.comment>?
 		]
 	}
 	token anchor {
@@ -570,7 +573,7 @@ grammar Grammar {
 			make ($num > 1 ?? "\n" xx $num - 1 !! ' ');
 		}
 		method plain($/) {
-			my $value = ~$<value>;
+			my $value = ~@<value>;
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(:$value, :$tag, :$anchor, :type(':'));
