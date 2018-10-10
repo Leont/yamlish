@@ -337,9 +337,11 @@ grammar Grammar {
 	regex plain(Str $indent) {
 		<properties>?
 		$<value> = [ <.plainfirst> [ <-[\x0a\x0d\:\#]> | ':' <!break> | <!after <.space>> '#' ]* ]
-		[ <.newline> $indent ' ' $<value> = [ <-[\x0a\x0d\#]>  | <!after <.space>> '#' ]* ]*
-		<!after <.space>> :
+		[ <.comment>? <value=foldable-plain> $indent ' ' $<value>=[ <-[\x0a\x0d\#]>  | <!after <.space>> '#' ]* ]*
 		<.comment>?
+	}
+	token foldable-plain {
+		<line-break>+
 	}
 	regex inline-plain {
 		$<value> = [
@@ -572,8 +574,22 @@ grammar Grammar {
 			my $num = +@<breaks>;
 			make ($num > 1 ?? "\n" xx $num - 1 !! ' ');
 		}
+		method foldable-plain($/) {
+			make +@<line-break>;
+		}
 		method plain($/) {
-			my $value = ~@<value>;
+			my @values = @<value>.map: { .ast.defined ?? .ast !! .Str };
+			my $value = @values.shift;
+			for @values -> $joiner, $text is copy {
+				if $joiner > 1 {
+					$value ~= "\n" x $joiner - 1;
+				}
+				else {
+					$text .= subst(/ ^ ' '*/, ' ');
+				}
+				$value ~= $text;
+			}
+			$value.=subst(/<[\ \t]>+$/, '');
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(:$value, :$tag, :$anchor, :type(':'));
