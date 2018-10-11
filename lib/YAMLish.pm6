@@ -385,10 +385,15 @@ grammar Grammar {
 		<properties>?
 		$<kind>=<[\|\>]> <.space>*
 		<.comment>? <.line-break>
-		[ $indent <.line-break> ]*
 		:my $new-indent;
-		<?before $indent $<sp>=' '+ { $new-indent = $indent ~ $<sp> }>
-		[ $new-indent $<content>=[ \N* ] | $indent <.before <.line-break> > ]+ % <.line-break>
+		<?before
+			[ $indent <.space>* <.line-break> ]*
+			$indent $<sp>=' '+ { $new-indent = $<sp> }
+		>
+		[ $indent <.space>* $<content>=[ <.after .> ] <.line-break> ]*
+		[
+			[ $indent $new-indent $<content>=[ \N* ] ]+ % <.line-break>
+		]+ % [ <.line-break>+ % [ $<content>= [ <.after .> ] ]  ]
 	}
 
 	token inline-map {
@@ -599,11 +604,42 @@ grammar Grammar {
 			make Plain.new(value => ~$<value>, :$tag, :type(":"));
 		}
 		method block-string($/) {
-			my $value = $<content>.map(* ~ "\n").join('');
+			my @lines = @<content>.map(*.Str);
+			my Str $value = '';
 			if $<kind> eq '>' {
+				my Int $folded = 1;
+				my Bool $indented = False;
+				$value = '';
 				my $/;
-				$value .= subst(/ <[\x0a\x0d]> <!before ' ' | $> /, ' ', :g);
+				for @lines -> $line {
+					if $line ~~ / ^ \s* $ / {
+						$value ~= "\n" if $indented;
+						$value ~= "\n";
+						$folded++;
+						$indented = False;
+					}
+					elsif $line ~~ /^\s+/ {
+						$value ~= "\n" if $value && $folded < 2;
+						$value ~= $line;
+						$folded = 1;
+						$indented = True;
+					}
+					elsif $indented {
+						$value ~= "\n";
+						$folded = 2;
+						$indented = False;
+					}
+					else {
+						$value ~= ' ' if !$folded;
+						$value ~= $line;
+						$folded = False;
+					}
+				}
 			}
+			else {
+				$value = @lines.map(* ~ "\n").join('');
+			}
+			$value .= subst(/ \n* $ /, "\n");
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(:$value, :$tag, :$anchor, :type(~$<kind>));
