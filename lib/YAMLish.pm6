@@ -386,7 +386,7 @@ grammar Grammar {
 	}
 	token block-string(Str $indent) {
 		<properties>?
-		$<kind>=<[\|\>]> <.space>*
+		$<kind>=<[\|\>]> $<chomp>=<[+-]>? <.space>*
 		<.comment>? <.line-break>
 		:my $new-indent;
 		<?before
@@ -642,7 +642,9 @@ grammar Grammar {
 			else {
 				$value = @lines.map(* ~ "\n").join('');
 			}
-			$value .= subst(/ \n* $ /, "\n");
+			if $<chomp> ne '+' {
+				$value .= subst(/ \n* $ /, $<chomp> eq '-' ?? '' !! "\n")
+			}
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(:$value, :$tag, :$anchor, :type(~$<kind>));
