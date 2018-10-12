@@ -344,6 +344,7 @@ grammar Grammar {
 		<line-break>+
 	}
 	regex inline-plain {
+		<properties>?
 		$<value> = [
 			<.plainfirst> :
 			[ <-[\x0a\x0d\:\,\[\]\{\}\#]> | ':' <!break> | <!after <.space>> '#' ]*
@@ -352,9 +353,11 @@ grammar Grammar {
 		<.space>*
 	}
 	token single-key {
-		"'" $<value>=[ [ <-['\x0a]> | "''" ]* ] "'"
+		<properties>?
+		"'" ~ "'" [ <str=single-bare> | <str=single-quotes> | <str=space> ]*
 	}
 	token double-key {
+		<properties>?
 		\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=.space> ]*
 	}
 
@@ -563,8 +566,7 @@ grammar Grammar {
 			make "'";
 		}
 		method single-key($/) {
-			my $value = $<value>.Str.subst("''", "'", :g);
-			make Quoted.new(:$value, :type("'"));
+			self.single-quoted($/);
 		}
 		method double-quoted($/) {
 			my $value = @<str>».ast.join;
@@ -601,7 +603,8 @@ grammar Grammar {
 		}
 		method inline-plain($/) {
 			my Tag $tag = $<properties><tag>.ast;
-			make Plain.new(value => ~$<value>, :$tag, :type(":"));
+			my Str $anchor = $<properties><anchor>.ast;
+			make Plain.new(value => ~$<value>, :$tag, :$anchor, :type(":"));
 		}
 		method block-string($/) {
 			my @lines = @<content>.map(*.Str);
