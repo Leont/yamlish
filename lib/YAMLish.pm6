@@ -303,7 +303,7 @@ grammar Grammar {
 		[ <.newline> $indent \s+ <wrongkey=key> <.space>* ':' {} <.indent-panic: $<wrongkey>, $indent, "map"> ]?
 	}
 	token map-entry(Str $indent) {
-		  <key> <.space>* ':' <?break> <.block-ws($indent)> <element($indent, 0)>
+		  <key> <.space>* ':' <?break> <element($indent, 0)>
 		| '?' <.block-ws($indent)> <key=.element($indent, 0)> <.newline> $indent
 		  <.space>* ':' <.space>+ <element($indent, 0)>
 	}
@@ -316,7 +316,7 @@ grammar Grammar {
 		'-' <?break>
 		[
 		  || <element=cuddly-list-entry($indent)>
-		  || <.block-ws($indent)> <element($indent, 1)> <.comment>?
+		  || <element($indent, 1)> <.comment>?
 		]
 	}
 	token cuddly-list-entry(Str $indent) {
@@ -443,9 +443,9 @@ grammar Grammar {
 	}
 
 	token element(Str $indent, Int $minimum-indent) {
-		[  [ <value=block($indent, $minimum-indent)> | <value=block-string($indent)> ]
-		|  <value=inline> <.comment>?
-		|| <value=plain($indent)> <.comment>?
+		[ <.space>* [ <value=block($indent, $minimum-indent)> | <value=block-string($indent)> ]
+		|  <.block-ws($indent)> <value=inline> <.comment>?
+		|| <.block-ws($indent)> <value=plain($indent)> <.comment>?
 		]
 	}
 	token anchor {
