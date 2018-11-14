@@ -913,11 +913,11 @@ my %yaml-tags = (
 			die "Could not convert { $value.WHAT } to a sequence";
 		},
 		map => sub ($value) {
-			return $value if $value ~~ Associative;
+			return $value.hash if $value ~~ Iterable && all(@$value) ~~ Pair;
 			die "Could not convert { $value.WHAT } to am Associative";
 		},
 		set => sub ($value) {
-			return $value.keys.set if $value ~~ Associative;
+			return $value.map(*.key).Set if $value ~~ Iterable && all(@$value) ~~ Pair;
 			die "Could not convert { $value.WHAT } to a set";
 		},
 		omap => sub ($value) {
