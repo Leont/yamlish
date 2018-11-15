@@ -326,7 +326,7 @@ grammar Grammar {
 	}
 
 	token key {
-		| <inline-plain>
+		| <inline-key-plain>
 		| <single-key>
 		| <double-key>
 	}
@@ -343,11 +343,20 @@ grammar Grammar {
 	token foldable-plain {
 		<line-break>+
 	}
-	regex inline-plain {
+	regex inline-flow-plain {
 		<properties>?
 		$<value> = [
 			<.plainfirst> :
-			[ <-[\x0a\x0d\:\,\[\]\{\}\#]> | ':' <!break> | <!after <.space>> '#' ]*
+			[ <-[\x0a\x0d\:\#\,\[\]\{\}]> | ':' <!break> | <!after <.space>> '#' ]*
+			<!after <.space>> :
+		]
+		<.space>*
+	}
+	regex inline-key-plain {
+		<properties>?
+		$<value> = [
+			<.plainfirst> :
+			[ <-[\x0a\x0d\:\#]> | ':' <!break> | <!after <.space>> '#' ]*
 			<!after <.space>> :
 		]
 		<.space>*
@@ -407,7 +416,7 @@ grammar Grammar {
 		<pair>* %% \,
 	}
 	rule pair {
-		<key> ':' [ <inline> || <inline=inline-plain> ]
+		<key> ':' [ <inline> || <inline=inline-flow-plain> ]
 	}
 
 	token inline-list {
@@ -415,7 +424,7 @@ grammar Grammar {
 		'[' <.ws> <inline-list-inside> <.ws> ']'
 	}
 	rule inline-list-inside {
-		[ <inline> || <inline=inline-plain> ]* %% \,
+		[ <inline> || <inline=inline-flow-plain> ]* %% \,
 	}
 
 	token identifier-char {
@@ -601,10 +610,13 @@ grammar Grammar {
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(:$value, :$tag, :$anchor, :type(':'));
 		}
-		method inline-plain($/) {
+		method inline-key-plain($/) {
 			my Tag $tag = $<properties><tag>.ast;
 			my Str $anchor = $<properties><anchor>.ast;
 			make Plain.new(value => ~$<value>, :$tag, :$anchor, :type(":"));
+		}
+		method inline-flow-plain($/) {
+			self.inline-key-plain($/);
 		}
 		method block-string($/) {
 			my @lines = @<content>.map(*.Str);
