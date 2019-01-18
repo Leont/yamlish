@@ -1052,3 +1052,43 @@ sub save-yaml($document --> Str) is export {
 sub save-yamls(**@documents --> Str) is export {
 	@documents.map(&to-yaml-doc).join('') ~ "...";
 }
+
+=begin pod
+
+=head1 NAME
+
+YAMLish - a YAML parser/emitter written in pure perl6
+
+=head1 DESCRIPTION
+
+This is a YAML parser written in pure-perl6.
+It aims at being feature complete (though there still a few features left to implement). Patches are welcome.
+
+=head1 INSTALLATION
+
+=begin code :lang<console>
+
+$ zef install YAMLish
+
+=end code
+
+=head1 EXPORTED SUBS
+
+=item C<load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
+=item C<load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
+=item C<save-yaml($document)>
+=item C<save-yamls(**@documents)>
+
+=head1 TODO
+
+Please have a look at L<TODO.md>
+
+=head1 AUTHOR
+
+Leon Timmermans
+
+=head1 LICENSE
+
+Unknown
+
+=end pod
