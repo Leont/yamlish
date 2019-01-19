@@ -1089,6 +1089,6 @@ Leon Timmermans
 
 =head1 LICENSE
 
-Unknown
+Artistic License 2.0
 
 =end pod
