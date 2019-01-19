@@ -41,5 +41,5 @@ Leon Timmermans
 LICENSE
 =======
 
-Unknown
+Artistic License 2.0
 
