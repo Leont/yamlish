@@ -10,6 +10,8 @@ my @data = (
 	42.005,
 	True,
 	False,
+	'A string containing a single (") double quote.',
+	"A string containing both 'single' and \"double\" quotes.",
 	"A multiline\nstring.\n",
 	"  A multiline \n   string with varying\n  indentation.\n",
 	[1, 2, 3],

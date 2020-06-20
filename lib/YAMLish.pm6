@@ -1020,7 +1020,7 @@ multi to-yaml(Str:D  $d where /^ <!Schema::Core::element> <[\w.-]>+ $/; $ = Str)
 	return $d;
 }
 multi to-yaml(Str:D  $d; $) {
-	return '"' ~ escape-chars($d).trans('"' => '\"') ~ '"'
+	return '"' ~ escape-chars($d).trans(['"'] => ['\"']) ~ '"'
 }
 multi to-yaml(Positional:D $d, Str $indent) {
 	return ' []' unless $d.elems;
