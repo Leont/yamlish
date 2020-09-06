@@ -102,7 +102,7 @@ class Mapping does Element {
 	has Pair @.elems;
 	submethod BUILD(:@!elems, :$!tag = Tag) {}
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
-		my @pairs := @.elems.map({ .key.make-value($schema, $namespaces, %anchors, %callbacks) => .value.make-value($schema, $namespaces, %anchors, %callbacks)}).list;
+		my @pairs := @.elems.map({ .key.concretize($schema, $namespaces, %anchors, %callbacks) => .value.concretize($schema, $namespaces, %anchors, %callbacks)}).list;
 		my $tag = $.effective-tag;
 		if $tag ~~ NonSpecificTag {
 			return @pairs.hash;
