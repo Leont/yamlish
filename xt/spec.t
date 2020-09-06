@@ -6,30 +6,29 @@ use JSON::Tiny;
 
 my @targets = @*ARGS || dir('test-suite/name');
 
-for @targets -> $dirname {
-	my $description = slurp($*SPEC.catfile($dirname, '===')).chomp;
+plan(+@targets);
 
-	my $filename = $*SPEC.catfile($dirname, 'in.yaml');
-	my $yaml-text = slurp($filename);
+for @targets -> $dirname {
+	my $dir = $dirname.IO;
+	my $description = $dir.add('===').slurp.chomp;
+
+	my $yaml-text = $dir.add('in.yaml').slurp;
 	my $yaml-content = load-yaml($yaml-text);
 
 	subtest "$description ($dirname)", {
-		if $*SPEC.catfile($dirname, 'error').IO.e {
+		if $dir.add('error').e {
 			ok($yaml-content ~~ Failure, "Fails to parse");
 		}
 		else {
-			my @expected-events = slurp($*SPEC.catfile($dirname, 'test.event')).lines.map({ $_ eq '-DOC ...' ?? '-DOC' !! $_ } );
+			my @expected-events = $dir.add('test.event').lines.map({ $_ eq '-DOC ...' ?? '-DOC' !! $_ } );
 			my @observed-events = try { stream-yaml($yaml-text) // Nil };
 			is(@observed-events.join(' '), @expected-events.join(' '), "Events match $dirname") if @observed-events || True;
 
-			my $json-name = $*SPEC.catfile($dirname, 'in.json');
-			if $json-name.IO.e {
-				my $json-text = slurp($json-name);
-				my $json-content = from-json($json-text);
+			my $json-name = $dir.add('in.json');
+			if $json-name.e {
+				my $json-content = from-json($json-name.slurp);
 				is-deeply($yaml-content, $json-content, "JSON matches");
 			}
 		}
 	}
 }
-
-done-testing;
