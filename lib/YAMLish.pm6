@@ -1057,11 +1057,11 @@ sub save-yamls(**@documents --> Str) is export {
 
 =head1 NAME
 
-YAMLish - a YAML parser/emitter written in pure perl6
+YAMLish - a YAML parser/emitter written in pure raku
 
 =head1 DESCRIPTION
 
-This is a YAML parser written in pure-perl6.
+This is a YAML parser written in pure-raku.
 It aims at being feature complete (though there still a few features left to implement). Patches are welcome.
 
 =head1 INSTALLATION

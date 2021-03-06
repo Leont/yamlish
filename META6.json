@@ -6,7 +6,7 @@
   "depends" : [
     "MIME::Base64"
   ],
-  "description" : "a YAML parser/emitter written in pure perl6",
+  "description" : "a YAML parser/emitter written in pure raku",
   "license" : "NOASSERTION",
   "name" : "YAMLish",
   "perl" : "6.*",

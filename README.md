@@ -3,12 +3,12 @@
 NAME
 ====
 
-YAMLish - a YAML parser/emitter written in pure perl6
+YAMLish - a YAML parser/emitter written in pure raku
 
 DESCRIPTION
 ===========
 
-This is a YAML parser written in pure-perl6. It aims at being feature complete (though there still a few features left to implement). Patches are welcome.
+This is a YAML parser written in pure-raku. It aims at being feature complete (though there still a few features left to implement). Patches are welcome.
 
 INSTALLATION
 ============

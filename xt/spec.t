@@ -1,4 +1,4 @@
-#! perl6
+#! raku
 
 use Test;
 use YAMLish;
@@ -16,13 +16,14 @@ for @targets -> $dirname {
 	my $yaml-content = load-yaml($yaml-text);
 
 	subtest "$description ($dirname)", {
-		if $dir.add('error').e {
-			ok($yaml-content ~~ Failure, "Fails to parse");
-		}
-		else {
+		my $error = $dir.add('error').e;
+
+		is($yaml-content ~~ Failure, $error, "YAML content is {$error ?? 'not ' !! ''}defined");
+
+		if !$error {
 			my @expected-events = $dir.add('test.event').lines.map({ $_ eq '-DOC ...' ?? '-DOC' !! $_ } );
-			my @observed-events = try { stream-yaml($yaml-text) // Nil };
-			is(@observed-events.join(' '), @expected-events.join(' '), "Events match $dirname") if @observed-events || True;
+			my @observed-events = stream-yaml($yaml-text);
+			is(@observed-events.join(' '), @expected-events.join(' '), "Events match $dirname");
 
 			my $json-name = $dir.add('in.json');
 			if $json-name.e {
