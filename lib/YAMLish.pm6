@@ -1012,45 +1012,46 @@ our sub stream-yaml(Str $input) is export {
 	}
 }
 
-proto to-yaml($;$ = Str) {*}
+proto to-yaml($;$ = Str, :$sorted) {*}
 
-multi to-yaml(Real:D $d; $ = Str) { ~$d }
-multi to-yaml(Bool:D $d; $ = Str) { $d ?? 'true' !! 'false'; }
+multi to-yaml(Real:D $d; $ = Str, :$sorted) { ~$d }
+multi to-yaml(Bool:D $d; $ = Str, :$sorted) { $d ?? 'true' !! 'false'; }
 multi to-yaml(Str:D  $d where /^ <!Schema::Core::element> <[\w.-]>+ $/; $ = Str) {
 	return $d;
 }
-multi to-yaml(Str:D  $d; $) {
+multi to-yaml(Str:D  $d; $, :$sorted) {
 	return '"' ~ escape-chars($d).trans(['"'] => ['\"']) ~ '"'
 }
-multi to-yaml(Positional:D $d, Str $indent) {
-	return ' []' unless $d.elems;
+multi to-yaml(Positional:D $d, Str $indent, :$sorted) {
+	return ' []' unless ?$d;
 	return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ') }).join("\n");
 }
-multi to-yaml(Associative:D $d, Str $indent) {
-	return ' {}' unless $d.elems;
-	return "\n" ~ $d.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
+multi to-yaml(Associative:D $d, Str $indent, :$sorted) {
+	return ' {}' unless ?$d;
+	my @elems = $sorted ?? $d.sort !! $d.pairs;
+	return "\n" ~ @elems.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
 }
 
-multi to-yaml(Mu:U $, $) { '~' }
-multi to-yaml(Mu:D $s, $) {
+multi to-yaml(Mu:U $, $, :$sorted) { '~' }
+multi to-yaml(Mu:D $s, $, :$sorted) {
 	die "Can't serialize an object of type " ~ $s.WHAT.perl
 }
 
 subset Collection where Positional|Associative;
 
-proto to-yaml-doc($) { * }
-multi to-yaml-doc(Collection $document) {
-	return '---' ~ to-yaml($document, '') ~ "\n";
+proto to-yaml-doc($, :$sorted) { * }
+multi to-yaml-doc(Collection $document, :$sorted) {
+	return '---' ~ to-yaml($document, '', :$sorted) ~ "\n";
 }
-multi to-yaml-doc(Any $document) {
-	return '--- ' ~ to-yaml($document, '') ~ "\n";
+multi to-yaml-doc(Any $document, :$sorted) {
+	return '--- ' ~ to-yaml($document, '', :$sorted) ~ "\n";
 }
 
-sub save-yaml($document --> Str) is export {
-	to-yaml-doc($document) ~ "...";
+sub save-yaml($document, :$sorted = True --> Str) is export {
+	to-yaml-doc($document, :$sorted) ~ "...";
 }
-sub save-yamls(**@documents --> Str) is export {
-	@documents.map(&to-yaml-doc).join('') ~ "...";
+sub save-yamls(**@documents, :$sorted = True --> Str) is export {
+	@documents.map({ to-yaml-doc($_, :$sorted) }).join('') ~ "...";
 }
 
 =begin pod
@@ -1076,8 +1077,8 @@ $ zef install YAMLish
 
 =item C<load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
 =item C<load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
-=item C<save-yaml($document)>
-=item C<save-yamls(**@documents)>
+=item C<save-yaml($document, :$sorted = True)>
+=item C<save-yamls(**@documents, :$sorted = True)>
 
 =head1 TODO
 
