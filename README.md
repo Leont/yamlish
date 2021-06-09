@@ -24,9 +24,9 @@ EXPORTED SUBS
 
   * `load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)`
 
-  * `save-yaml($document)`
+  * `save-yaml($document, :$sorted = True)`
 
-  * `save-yamls(**@documents)`
+  * `save-yamls(**@documents, :$sorted = True)`
 
 TODO
 ====

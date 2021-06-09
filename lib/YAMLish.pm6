@@ -1024,12 +1024,12 @@ multi to-yaml(Str:D  $d; $, :$sorted) {
 }
 multi to-yaml(Positional:D $d, Str $indent, :$sorted) {
 	return ' []' unless ?$d;
-	return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ') }).join("\n");
+	return "\n" ~ $d.map({ "$indent\- " ~ to-yaml($_, $indent ~ '  ', :$sorted) }).join("\n");
 }
 multi to-yaml(Associative:D $d, Str $indent, :$sorted) {
 	return ' {}' unless ?$d;
 	my @elems = $sorted ?? $d.sort !! $d.pairs;
-	return "\n" ~ @elems.map({ $indent ~ to-yaml(.key, $indent) ~ ': ' ~ to-yaml(.value, $indent ~ '  ') }).join("\n")
+	return "\n" ~ @elems.map({ $indent ~ to-yaml(.key, $indent, :$sorted) ~ ': ' ~ to-yaml(.value, $indent ~ '  ', :$sorted) }).join("\n")
 }
 
 multi to-yaml(Mu:U $, $, :$sorted) { '~' }
