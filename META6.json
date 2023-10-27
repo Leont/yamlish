@@ -1,27 +1,30 @@
 {
   "auth": "zef:leont",
-  "authors" : [
+  "authors": [
     "Leon Timmermans"
   ],
-  "build-depends" : [ ],
-  "depends" : [
+  "build-depends": [
+  ],
+  "depends": [
     "MIME::Base64"
   ],
-  "description" : "a YAML parser/emitter written in pure raku",
+  "description": "a YAML parser/emitter written in pure raku",
   "license": "Artistic-2.0",
-  "name" : "YAMLish",
-  "perl" : "6.*",
-  "provides" : {
-    "YAMLish" : "lib/YAMLish.pm6"
+  "name": "YAMLish",
+  "perl": "6.*",
+  "provides": {
+    "YAMLish": "lib/YAMLish.rakumod"
   },
-  "resources" : [ ],
-  "source-url" : "git://github.com/leont/yamlish.git",
-  "tags" : [
+  "resources": [
+  ],
+  "source-url": "git://github.com/leont/yamlish.git",
+  "tags": [
     "YAML",
     "format",
     "parser",
     "serialization"
   ],
-  "test-depends" : [ ],
-  "version" : "0.0.6"
+  "test-depends": [
+  ],
+  "version": "0.1.0"
 }
