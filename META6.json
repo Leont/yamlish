@@ -7,7 +7,7 @@
     "MIME::Base64"
   ],
   "description" : "a YAML parser/emitter written in pure raku",
-  "license" : "NOASSERTION",
+  "license": "Artistic-2.0",
   "name" : "YAMLish",
   "perl" : "6.*",
   "provides" : {
