@@ -958,6 +958,14 @@ our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is
 	my Callable %callbacks = |%default-tags, |flatten-tags(%tags);
 	return $match ?? $match.ast.map(*.concretize($schema, %callbacks)) !! fail "Couldn't parse YAML";
 }
+our sub debool($s is copy) is export {
+    	my @boolies =  <y Y yes Yes YES n N no No NO
+                   	true True TRUE false False FALSE
+                   	on On ON off Off OFF>;
+
+    $s ~~ s:g/<|w>(<@boolies>)<|w>/\"$0\"/;
+    return $s;
+}
 
 my proto emit-yaml($, $) {*}
 
