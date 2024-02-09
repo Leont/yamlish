@@ -27,6 +27,8 @@ EXPORTED SUBS
   * `save-yaml($document, :$sorted = True)`
 
   * `save-yamls(**@documents, :$sorted = True)`
+    
+  * `debool(Str $input -> Str)`   #quote boolean values (y, Y, yes, Yes, YES and so on)
 
 TODO
 ====
