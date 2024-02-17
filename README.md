@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/tbrowder/yamlish.svg?branch=master)](https://travis-ci.org/tbrowder/yamlish)
+[![Actions Status](https://github.com/Leont/yamlish/actions/workflows/linux.yml/badge.svg)](https://github.com/Leont/yamlish/actions) [![Actions Status](https://github.com/Leont/yamlish/actions/workflows/macos.yml/badge.svg)](https://github.com/Leont/yamlish/actions) [![Actions Status](https://github.com/Leont/yamlish/actions/workflows/windows.yml/badge.svg)](https://github.com/Leont/yamlish/actions)
 
 NAME
 ====

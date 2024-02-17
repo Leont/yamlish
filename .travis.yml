@@ -1,8 +1,0 @@
-branches:
-sudo: false
-language: perl6
-perl6:
-  - latest
-install:
-  - rakudobrew build-zef
-  - zef --verbose install .
