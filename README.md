@@ -43,9 +43,9 @@ Acess the file in your code like this:
     use YAMLish;
     my $str = "config.yml".IO.slurp:
     my %conf = load-yaml $str;
-    say %conf<lang>; # OUTPUT: en
-    say %conf<lat>;  # OUTPUT: 46.12345
-    say %conf<lon>;  # OUTPUT: -82.6231
+    say %conf<lang>; # OUTPUT: «en␤»
+    say %conf<lat>;  # OUTPUT: «46.12345␤»
+    say %conf<lon>;  # OUTPUT: «-82.6231␤»
 
 TODO
 ====
