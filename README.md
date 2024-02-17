@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Leont/yamlish.svg?branch=master)](https://travis-ci.org/Leont/yamlish)
+[![Build Status](https://travis-ci.org/tbrowder/yamlish.svg?branch=master)](https://travis-ci.org/tbrowder/yamlish)
 
 NAME
 ====
@@ -28,10 +28,29 @@ EXPORTED SUBS
 
   * `save-yamls(**@documents, :$sorted = True)`
 
+Example use for a configuration file
+====================================
+
+The file uses simple key/value lines:
+
+    # key: value
+    lang: en
+    lat: 46.12345
+    lon: -82.6231
+
+In your code:
+
+    use YAMLish;
+    my $str = "config.yml".IO.slurp:
+    my %conf = load-yaml $str;
+    say %conf<lang>; # OUTPUT: en
+    say %conf<lat>;  # OUTPUT: 46.12345
+    say %conf<lon>;  # OUTPUT: -82.6231
+
 TODO
 ====
 
-Please have a look at [TODO.md](TODO.md)
+Please have a look at [./TODO.md](./TODO.md)
 
 AUTHOR
 ======

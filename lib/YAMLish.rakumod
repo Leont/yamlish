@@ -1080,9 +1080,31 @@ $ zef install YAMLish
 =item C<save-yaml($document, :$sorted = True)>
 =item C<save-yamls(**@documents, :$sorted = True)>
 
+=head1 Example use for a configuration file
+
+The file uses simple key/value lines:
+
+=begin code
+# key: value
+lang: en
+lat: 46.12345
+lon: -82.6231
+=end code
+
+In your code:
+
+=begin code
+use YAMLish;
+my $str = "config.yml".IO.slurp:
+my %conf = load-yaml $str;
+say %conf<lang>; # OUTPUT: en
+say %conf<lat>;  # OUTPUT: 46.12345
+say %conf<lon>;  # OUTPUT: -82.6231
+=end code
+
 =head1 TODO
 
-Please have a look at L<TODO.md>
+Please have a look at L<./TODO.md>
 
 =head1 AUTHOR
 
