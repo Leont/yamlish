@@ -1,4 +1,4 @@
-[![Actions Status](https://github.com/tbrowder/yamlish/actions/workflows/linux.yml/badge.svg)](https://github.com/tbrowder/yamlish/actions) [![Actions Status](https://github.com/tbrowder/yamlish/actions/workflows/macos.yml/badge.svg)](https://github.com/tbrowder/yamlish/actions) [![Actions Status](https://github.com/tbrowder/yamlish/actions/workflows/windows.yml/badge.svg)](https://github.com/tbrowder/yamlish/actions)
+[![Actions Status](https://github.com/leont/yamlish/actions/workflows/linux.yml/badge.svg)](https://github.com/leont/yamlish/actions) [![Actions Status](https://github.com/leont/yamlish/actions/workflows/macos.yml/badge.svg)](https://github.com/leont/yamlish/actions) [![Actions Status](https://github.com/leont/yamlish/actions/workflows/windows.yml/badge.svg)](https://github.com/leont/yamlish/actions)
 
 NAME
 ====
