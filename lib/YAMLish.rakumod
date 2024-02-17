@@ -1092,7 +1092,7 @@ lat: 46.12345
 lon: -82.6231
 =end code
 
-Acess the file in your code like this:
+Access the file in your code like this:
 
 =begin code
 use YAMLish;

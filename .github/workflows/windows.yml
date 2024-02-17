@@ -25,4 +25,4 @@ jobs:
       - name: Install Dependencies
         run: zef install --/test --deps-only .
       - name: Run Tests
-        run: zef --debug test .
+        run: zef --debug install .

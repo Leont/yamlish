@@ -38,7 +38,7 @@ This configuration file begins with a comment followed by three lines of key/val
     lat: 46.12345
     lon: -82.6231
 
-Acess the file in your code like this:
+Access the file in your code like this:
 
     use YAMLish;
     my $str = "config.yml".IO.slurp:
