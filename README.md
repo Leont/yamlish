@@ -31,14 +31,14 @@ EXPORTED SUBS
 Example use for a configuration file
 ====================================
 
-The file uses simple key/value lines:
+This configuration file begins with a comment followed by three lines of key/value:
 
     # key: value
     lang: en
     lat: 46.12345
     lon: -82.6231
 
-In your code:
+Acess the file in your code like this:
 
     use YAMLish;
     my $str = "config.yml".IO.slurp:

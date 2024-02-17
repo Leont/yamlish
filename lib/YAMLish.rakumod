@@ -1082,7 +1082,8 @@ $ zef install YAMLish
 
 =head1 Example use for a configuration file
 
-The file uses simple key/value lines:
+This configuration file begins with a comment
+followed by three lines of key/value:
 
 =begin code
 # key: value
@@ -1091,7 +1092,7 @@ lat: 46.12345
 lon: -82.6231
 =end code
 
-In your code:
+Acess the file in your code like this:
 
 =begin code
 use YAMLish;
