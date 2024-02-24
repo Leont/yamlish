@@ -1,6 +1,8 @@
 Revision history for YAMLish
 
 {{$NEXT}}
+
+0.1.1  2024-02-24T15:53:07+01:00
     - Add example to README
     - Add test file xt/example-config.t
     - Add 3-OS testing
