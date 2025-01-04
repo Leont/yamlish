@@ -100,7 +100,7 @@ class Quoted does Single {
 
 class Mapping does Element {
 	has Pair @.elems;
-	submethod BUILD(:@!elems, :$!tag = Tag) {}
+	submethod BUILD(:@!elems, :$!anchor = Str, :$!tag = Tag) {}
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
 		my @pairs := @.elems.map({ .key.concretize($schema, $namespaces, %anchors, %callbacks) => .value.concretize($schema, $namespaces, %anchors, %callbacks)}).list;
 		my $tag = $.effective-tag;
@@ -116,7 +116,7 @@ class Mapping does Element {
 
 class Sequence does Element {
 	has Node @.elems;
-	submethod BUILD(:@!elems, :$!tag = Tag) {}
+	submethod BUILD(:@!elems, :$!anchor = Str, :$!tag = Tag) {}
 	method make-value($schema, $namespaces, %anchors, %callbacks) {
 		my @pairs = @.elems.map(*.concretize($schema, $namespaces, %anchors, %callbacks)).list;
 		my $tag = $.effective-tag;
