@@ -335,7 +335,7 @@ grammar Grammar {
 		| <[\?\:\-]> <!before <.space> | <.line-break>>
 	}
 	regex plain(Str $indent) {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		$<value> = [ <.plainfirst> [ <-[\x0a\x0d\:\#]> | ':' <!break> | <!after <.space>> '#' ]* ]
 		[ <.comment>? <value=foldable-plain> $indent ' ' $<value>=[ <-[\x0a\x0d\#]>  | <!after <.space>> '#' ]* ]*
 		<.comment>?
@@ -344,7 +344,7 @@ grammar Grammar {
 		<line-break>+
 	}
 	regex inline-flow-plain {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		$<value> = [
 			<.plainfirst> :
 			[ <-[\x0a\x0d\:\#\,\[\]\{\}]> | ':' <!break> | <!after <.space>> '#' ]*
@@ -353,7 +353,7 @@ grammar Grammar {
 		<.space>*
 	}
 	regex inline-key-plain {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		$<value> = [
 			<.plainfirst> :
 			[ <-[\x0a\x0d\:\#]> | ':' <!break> | <!after <.space>> '#' ]*
@@ -362,16 +362,16 @@ grammar Grammar {
 		<.space>*
 	}
 	token single-key {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		"'" ~ "'" [ <str=single-bare> | <str=single-quotes> | <str=space> ]*
 	}
 	token double-key {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=.space> ]*
 	}
 
 	regex single-quoted {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		"'" ~ "'" [ <str=single-bare> | <str=single-quotes> | <str=foldable-whitespace> | <str=space> ]*
 	}
 	token single-bare {
@@ -381,7 +381,7 @@ grammar Grammar {
 		"''"
 	}
 	token double-quoted {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		\" ~ \" [ <str=.quoted-bare> | \\ <str=.quoted-escape> | <str=foldable-whitespace> | <str=space> ]*
 	}
 	token quoted-bare {
@@ -394,7 +394,7 @@ grammar Grammar {
 		<.space>* [ <breaks=line-break> <.space>* ]+
 	}
 	token block-string(Str $indent) {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		$<kind>=<[\|\>]> $<chomp>=<[+-]>? <.space>*
 		<.comment>? <.line-break>
 		:my $new-indent;
@@ -409,7 +409,7 @@ grammar Grammar {
 	}
 
 	token inline-map {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		'{' <.ws> <pairlist> <.ws> '}'
 	}
 	rule pairlist {
@@ -420,7 +420,7 @@ grammar Grammar {
 	}
 
 	token inline-list {
-		<properties>?
+		[ <properties> <.space>+ ]?
 		'[' <.ws> <inline-list-inside> <.ws> ']'
 	}
 	rule inline-list-inside {
@@ -443,8 +443,8 @@ grammar Grammar {
 	}
 
 	token properties {
-		| <anchor> <.space>+ [ <tag> <.space>+ ]?
-		| <tag> <.space>+ [ <anchor> <.space>+ ]?
+		| <anchor> [ <.space>+ <tag> ]?
+		| <tag> [ <.space>+ <anchor> ]?
 	}
 
 	token alias {
