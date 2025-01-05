@@ -1,6 +1,8 @@
 Revision history for YAMLish
 
 {{$NEXT}}
+
+0.1.2  2025-01-05T23:05:00+01:00
     - Add anchor handling to Maps and Sequences
     - Fix property parsing in blocks
 

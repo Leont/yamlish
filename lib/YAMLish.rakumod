@@ -1,6 +1,6 @@
 use v6;
 
-unit module YAMLish:ver<0.1.1>:auth<zef:leont>;
+unit module YAMLish:ver<0.1.2>:auth<zef:leont>;
 
 my $yaml-namespace = 'tag:yaml.org,2002:';
 
