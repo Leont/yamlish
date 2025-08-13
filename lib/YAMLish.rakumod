@@ -1,5 +1,3 @@
-use v6;
-
 unit module YAMLish:ver<0.1.2>:auth<zef:leont>;
 
 my $yaml-namespace = 'tag:yaml.org,2002:';
@@ -916,7 +914,7 @@ my %yaml-tags = (
 			return Any;
 		},
 		binary => sub ($value) {
-			require MIME::Base64;
+			require MIME::Base64:ver<1.2.4>:auth<zef:raku-community-modules>;
 			return MIME::Base64.decode($value.subst(/<[\ \t\n]>/, '', :g)) if $value ~~ Str;
 			die "Binary has to be a string";
 		},

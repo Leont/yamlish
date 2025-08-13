@@ -1,5 +1,3 @@
-#! raku
-
 use Test;
 use YAMLish;
 use JSON::Tiny;

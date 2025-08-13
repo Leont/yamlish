@@ -1,6 +1,3 @@
-#! raku
-
-use v6;
 use Test;
 use YAMLish;
 
