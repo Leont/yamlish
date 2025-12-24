@@ -1,6 +1,10 @@
 Revision history for YAMLish
 
 {{$NEXT}}
+    - Add example to README
+    - Add test file t/example-config.t
+    - Add test config file t/data/config.yml
+    - Add 3-OS testing
 
 0.1.2  2025-01-05T23:05:00+01:00
     - Add anchor handling to Maps and Sequences
