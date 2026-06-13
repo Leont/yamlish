@@ -112,4 +112,10 @@ END
 my $expected4 = "1";
 is(load-yaml($text4), $expected4, 'Tags and directives seem to work');
 
+# A %YAML directive sets the document version; its absence defaults it.
+is(YAMLish::Grammar.parse("%YAML 1.1\n---\nkey: value\n").ast[0].version, 1.1,
+	'%YAML directive sets the document version');
+is(YAMLish::Grammar.parse("---\nkey: value\n").ast[0].version, 1.2,
+	'absent %YAML directive defaults the document version');
+
 done-testing();
