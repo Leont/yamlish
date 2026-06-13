@@ -515,7 +515,7 @@ grammar Grammar {
 		method directives($/) {
 			my %directives;
 			%directives<tags> = @<tag-directive>».ast.list;
-			%directives<version> = @<yaml-directive>[0].ast.Rat if @<yaml-directives> == 0;
+			%directives<version> = @<yaml-directive>[0]<version>.Str.Rat if @<yaml-directive>;
 			make %directives;
 		}
 		method tag-directive($/) {
