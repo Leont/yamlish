@@ -940,7 +940,7 @@ my sub flatten-tags(%tags) {
 }
 my %default-tags = flatten-tags(%yaml-tags);
 
-our sub load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is export {
+our sub load-yaml(Str $input, ::GrammarType:U :$schema = ::Schema::Core, :%tags) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
@@ -948,7 +948,7 @@ our sub load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is 
 	my Callable %callbacks = |%default-tags, |flatten-tags(%tags);
 	return $match ?? $match.ast[0].concretize($schema, %callbacks) !! fail "Couldn't parse YAML";
 }
-our sub load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags) is export {
+our sub load-yamls(Str $input, ::GrammarType:U :$schema = ::Schema::Core, :%tags) is export {
 	my $match = Grammar.parse($input);
 	CATCH {
 		fail "Couldn't parse YAML: $_";
@@ -1073,8 +1073,8 @@ $ zef install YAMLish
 
 =head1 EXPORTED SUBS
 
-=item C<load-yaml(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
-=item C<load-yamls(Str $input, ::Grammar:U :$schema = ::Schema::Core, :%tags)>
+=item C<load-yaml(Str $input, ::GrammarType:U :$schema = ::Schema::Core, :%tags)>
+=item C<load-yamls(Str $input, ::GrammarType:U :$schema = ::Schema::Core, :%tags)>
 =item C<save-yaml($document, :$sorted = True)>
 =item C<save-yamls(**@documents, :$sorted = True)>
 
