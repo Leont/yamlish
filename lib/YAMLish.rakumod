@@ -150,7 +150,7 @@ class Document {
 grammar Grammar {
 	method indent-panic($/, $indent, $what) {
 		my ($line-num, $column) := self.line-column($/);
-		die "Problem with indentatiton in $what at {$line-num}:{$column}."
+		die "Problem with indentation in $what at {$line-num}:{$column}."
 	}
 
 	method line-column($/) {
